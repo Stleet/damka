@@ -1,0 +1,4520 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0e1218" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Дамка" />
+<title>Дамка — Шашки с AI-тренером</title>
+<style>
+  :root {
+    --bg: #0e1218;
+    --bg-grad: radial-gradient(1200px 700px at 80% -10%, rgba(247,200,115,0.10), transparent 60%),
+               radial-gradient(900px 500px at -10% 100%, rgba(85,150,255,0.07), transparent 60%),
+               linear-gradient(180deg, #0c1117 0%, #0e1218 100%);
+    --surface: #181d26;
+    --surface-2: #1f2530;
+    --surface-3: #272e3b;
+    --text: #ebebeb;
+    --text-dim: #9aa3b2;
+    --text-faint: #6b7280;
+    --accent: #f7c873;
+    --accent-2: #c89b3c;
+    --accent-grad: linear-gradient(135deg, #f7d486 0%, #d4a242 100%);
+    --good: #6ec46a;
+    --warn: #ffb84d;
+    --bad: #ff7a6b;
+    --info: #6ea8fe;
+    --board-light: #e8c98f;
+    --board-dark: #7a4a26;
+    --board-light-2: #efd8a8;
+    --board-dark-2: #5c3517;
+    --highlight: rgba(247,200,115,0.55);
+    --possible: rgba(110, 196, 106, 0.55);
+    --capture: rgba(255, 122, 107, 0.65);
+    --selected: rgba(247,200,115,0.85);
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.12);
+    --shadow: 0 10px 40px rgba(0,0,0,0.45);
+    --shadow-soft: 0 4px 16px rgba(0,0,0,0.25);
+    --piece-w: linear-gradient(160deg, #f4ecd6 10%, #d8c191 90%);
+    --piece-w-edge: #a07f3a;
+    --piece-b: linear-gradient(160deg, #3c3c3c 10%, #111 90%);
+    --piece-b-edge: #000;
+    --king-glow: 0 0 0 2px #f7c873 inset, 0 0 8px rgba(247,200,115,0.5);
+    --radius: 14px;
+    --radius-sm: 10px;
+    --radius-lg: 20px;
+  }
+  [data-theme="light"] {
+    --bg: #f6f1e6;
+    --bg-grad: radial-gradient(1200px 700px at 85% -10%, rgba(212,162,66,0.18), transparent 55%),
+               radial-gradient(900px 500px at -10% 100%, rgba(85,150,255,0.10), transparent 55%),
+               linear-gradient(180deg, #f7f3e8 0%, #f3ecdb 100%);
+    --surface: #ffffff;
+    --surface-2: #f5efdf;
+    --surface-3: #ece3cb;
+    --text: #1a1a1a;
+    --text-dim: #5b5b5b;
+    --text-faint: #8a8a8a;
+    --border: rgba(0,0,0,0.07);
+    --border-strong: rgba(0,0,0,0.14);
+    --shadow: 0 12px 36px rgba(60,40,10,0.10);
+    --shadow-soft: 0 4px 14px rgba(60,40,10,0.06);
+    --board-light: #f3dcae;
+    --board-dark: #a36b3a;
+    --board-light-2: #f7e6c2;
+    --board-dark-2: #804f24;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    background-image: var(--bg-grad);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+  input, select, textarea { font: inherit; color: inherit; }
+  input::placeholder { color: var(--text-faint); }
+  a { color: inherit; }
+
+  /* ===== App layout ===== */
+  .app { max-width: 1280px; margin: 0 auto; padding: 16px 20px 40px; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 4px 22px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: 0.2px;
+    cursor: pointer;
+  }
+  .brand-logo {
+    width: 38px; height: 38px; border-radius: 11px;
+    background: var(--accent-grad);
+    display: grid; place-items: center; color: #2a1c00; font-weight: 900; font-size: 20px;
+    box-shadow: 0 6px 18px rgba(247,200,115,0.25);
+  }
+  .brand-title { font-size: 18px; }
+  .brand-sub { color: var(--text-dim); font-size: 12px; font-weight: 500; }
+
+  .topbar-right { display: flex; gap: 8px; align-items: center; }
+  .iconbtn {
+    width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-dim); transition: all 0.15s ease;
+  }
+  .iconbtn:hover { color: var(--text); background: var(--surface-2); }
+  .pro-badge {
+    background: var(--accent-grad); color: #2a1c00; padding: 6px 12px; border-radius: 99px;
+    font-weight: 700; font-size: 12px; letter-spacing: 0.3px;
+  }
+
+  /* ===== Buttons ===== */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 20px; border-radius: var(--radius-sm);
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    font-weight: 600; font-size: 14px; transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { background: var(--surface-3); transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent-grad); color: #2a1c00; border: none; font-weight: 700; }
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 8px 24px rgba(247,200,115,0.35); transform: translateY(-1px); }
+  .btn-ghost { background: transparent; border: 1px solid var(--border-strong); }
+  .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
+  .btn-danger { background: rgba(255,122,107,0.12); color: var(--bad); border: 1px solid rgba(255,122,107,0.25); }
+  .btn-sm { padding: 8px 14px; font-size: 13px; }
+  .btn-lg { padding: 14px 26px; font-size: 15px; }
+
+  /* ===== Onboarding ===== */
+  .onb {
+    display: grid; place-items: center; min-height: calc(100vh - 80px); padding: 20px;
+  }
+  .onb-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 36px 32px; max-width: 480px; width: 100%;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .onb-logo {
+    width: 72px; height: 72px; border-radius: 22px;
+    background: var(--accent-grad);
+    margin: 0 auto 20px; display: grid; place-items: center;
+    font-size: 36px; font-weight: 900; color: #2a1c00;
+    box-shadow: 0 10px 30px rgba(247,200,115,0.3);
+  }
+  .onb h1 { font-size: 28px; margin: 0 0 8px; }
+  .onb .sub { color: var(--text-dim); margin-bottom: 28px; font-size: 15px; }
+  .field { text-align: left; margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
+  .field input, .field select {
+    width: 100%; padding: 12px 14px; border-radius: var(--radius-sm);
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    outline: none; transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .avatar-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+  .avatar-opt {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--surface-2); border: 2px solid transparent;
+    display: grid; place-items: center; font-size: 24px;
+    transition: all 0.15s;
+  }
+  .avatar-opt.sel { border-color: var(--accent); background: var(--surface-3); }
+  .avatar-opt:hover { transform: scale(1.08); }
+
+  /* ===== Menu ===== */
+  .menu-hero {
+    text-align: center; padding: 40px 0 32px;
+  }
+  .menu-hero h2 { font-size: clamp(28px, 4vw, 42px); margin: 0 0 8px; letter-spacing: -0.5px; }
+  .menu-hero .accent { background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .menu-hero p { color: var(--text-dim); max-width: 540px; margin: 0 auto; font-size: 16px; }
+
+  .modes-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px; margin: 20px 0;
+  }
+  .mode-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 22px;
+    cursor: pointer; transition: all 0.2s ease;
+    position: relative; overflow: hidden;
+    text-align: left;
+    min-height: 160px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .mode-card:hover { transform: translateY(-3px); border-color: var(--border-strong); box-shadow: var(--shadow-soft); }
+  .mode-card.featured { border-color: rgba(247,200,115,0.35); background: linear-gradient(180deg, rgba(247,200,115,0.06), var(--surface)); }
+  .mode-card.featured::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(400px 200px at 100% 0%, rgba(247,200,115,0.10), transparent);
+    pointer-events: none;
+  }
+  .mode-emoji { font-size: 30px; }
+  .mode-title { font-weight: 700; font-size: 17px; margin: 14px 0 6px; display: flex; align-items: center; gap: 8px; }
+  .mode-desc { color: var(--text-dim); font-size: 13.5px; line-height: 1.45; }
+  .mode-cta { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 600; font-size: 13px; margin-top: 14px; }
+  .mode-tag { font-size: 10px; padding: 3px 8px; border-radius: 99px; background: var(--surface-2); color: var(--text-dim); font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
+  .mode-tag.hot { background: rgba(255,122,107,0.16); color: var(--bad); }
+  .mode-tag.new { background: rgba(110,196,106,0.16); color: var(--good); }
+  .mode-tag.pro { background: var(--accent-grad); color: #2a1c00; }
+
+  .stats-strip {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px; margin: 28px 0 8px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 16px; border-radius: var(--radius);
+  }
+  .stat-val { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+  .stat-label { font-size: 12px; color: var(--text-dim); margin-top: 2px; letter-spacing: 0.3px; text-transform: uppercase; font-weight: 600; }
+
+  /* ===== Game screen ===== */
+  .game-layout {
+    display: grid; grid-template-columns: 1fr 320px; gap: 20px;
+    align-items: start;
+  }
+  .game-main { display: flex; flex-direction: column; gap: 14px; }
+  .player-strip {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .player-strip.active { border-color: rgba(247,200,115,0.45); box-shadow: 0 0 0 1px rgba(247,200,115,0.25); }
+  .player-info { display: flex; align-items: center; gap: 12px; }
+  .player-avatar {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: var(--surface-2); display: grid; place-items: center; font-size: 22px;
+  }
+  .player-name { font-weight: 700; font-size: 14px; }
+  .player-meta { font-size: 11.5px; color: var(--text-dim); }
+  .player-clock {
+    font-variant-numeric: tabular-nums; font-weight: 700; font-size: 18px;
+    padding: 6px 12px; background: var(--surface-2); border-radius: 8px;
+    letter-spacing: 0.5px;
+  }
+  .player-clock.low { color: var(--bad); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:0.6;} }
+  .player-captures { display: inline-flex; gap: 2px; align-items: center; font-size: 12px; color: var(--text-dim); }
+
+  /* ===== Board ===== */
+  .board-wrap {
+    aspect-ratio: 1/1;
+    background: linear-gradient(135deg, var(--board-dark-2), var(--board-dark));
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    position: relative;
+    user-select: none;
+  }
+  .board {
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(0,0,0,0.3);
+  }
+  .cell {
+    position: relative;
+    display: grid; place-items: center;
+  }
+  .cell.light { background: var(--board-light); }
+  .cell.dark { background: var(--board-dark); }
+  .cell-mark {
+    position: absolute; top: 2px; left: 4px;
+    font-size: 9px; color: rgba(0,0,0,0.35); font-weight: 700;
+    pointer-events: none;
+  }
+  [data-theme="light"] .cell-mark { color: rgba(0,0,0,0.4); }
+  .cell.light .cell-mark { color: rgba(120,80,40,0.55); }
+  .cell.dark .cell-mark { color: rgba(255,235,180,0.4); }
+  .cell-hl-selected::after,
+  .cell-hl-possible::after,
+  .cell-hl-capture::after,
+  .cell-hl-last::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+  }
+  .cell-hl-selected::after { background: var(--selected); mix-blend-mode: overlay; }
+  .cell-hl-last::after { background: rgba(247,200,115,0.20); }
+  .cell-hl-possible::before {
+    content: ''; position: absolute; width: 26%; height: 26%; border-radius: 50%;
+    background: var(--possible); pointer-events: none;
+  }
+  .cell-hl-capture::before {
+    content: ''; position: absolute; width: 80%; height: 80%; border-radius: 50%;
+    border: 4px solid var(--capture); box-sizing: border-box; pointer-events: none;
+  }
+
+  .piece {
+    width: 80%; height: 80%; border-radius: 50%;
+    display: grid; place-items: center;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    z-index: 2;
+  }
+  .piece.w {
+    background: var(--piece-w);
+    box-shadow:
+      inset 0 -3px 5px rgba(0,0,0,0.18),
+      inset 0 2px 4px rgba(255,255,255,0.55),
+      0 4px 10px rgba(0,0,0,0.25),
+      0 0 0 2px var(--piece-w-edge);
+  }
+  .piece.b {
+    background: var(--piece-b);
+    box-shadow:
+      inset 0 -3px 5px rgba(0,0,0,0.5),
+      inset 0 2px 4px rgba(255,255,255,0.10),
+      0 4px 10px rgba(0,0,0,0.4),
+      0 0 0 2px var(--piece-b-edge);
+  }
+  .piece.king::after {
+    content: '♛'; font-size: 60%; line-height: 1;
+    color: var(--accent); text-shadow: 0 1px 1px rgba(0,0,0,0.4);
+  }
+  .piece.b.king::after { color: var(--accent); }
+  .piece.draggable:hover { transform: scale(1.05); box-shadow: var(--shadow); }
+  .piece.selected { transform: scale(1.08); }
+  .piece.selected.w { box-shadow: 0 0 0 3px var(--accent), inset 0 -3px 5px rgba(0,0,0,0.18), 0 6px 16px rgba(0,0,0,0.3); }
+  .piece.selected.b { box-shadow: 0 0 0 3px var(--accent), inset 0 -3px 5px rgba(0,0,0,0.5), 0 6px 16px rgba(0,0,0,0.4); }
+  .piece.must { animation: bob 1.4s infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+  /* ===== Inventory / Boxes / Rarities ===== */
+  .rarity-bar {
+    display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .rarity-chip {
+    padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface-2);
+    transition: all 0.15s;
+  }
+  .rarity-chip.active { background: var(--surface-3); border-color: var(--border-strong); }
+
+  .inv-tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; margin-bottom: 14px; }
+  .inv-tab { flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-dim); cursor: pointer; text-align: center; }
+  .inv-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-soft); }
+
+  .inv-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  .inv-tile {
+    background: var(--surface-2);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    position: relative; overflow: hidden;
+    min-height: 130px;
+  }
+  .inv-tile:hover { transform: translateY(-2px); }
+  .inv-tile.locked { opacity: 0.35; filter: grayscale(0.85); cursor: default; }
+  .inv-tile.locked:hover { transform: none; }
+  .inv-tile.equipped::before {
+    content: '✓ В игре'; position: absolute; top: 6px; right: 6px;
+    background: var(--accent-grad); color: #2a1c00; padding: 2px 6px;
+    border-radius: 99px; font-size: 9px; font-weight: 800; letter-spacing: 0.3px; z-index: 2;
+  }
+  .inv-tile.rarity-common    { border-color: #6a7282; box-shadow: 0 0 12px rgba(154,163,178,0.18); }
+  .inv-tile.rarity-rare      { border-color: #5dbb63; box-shadow: 0 0 14px rgba(93,187,99,0.25); }
+  .inv-tile.rarity-epic      { border-color: #a45ed0; box-shadow: 0 0 16px rgba(164,94,208,0.32); }
+  .inv-tile.rarity-mythic    { border-color: #ef4444; box-shadow: 0 0 18px rgba(239,68,68,0.38); }
+  .inv-tile.rarity-legendary { border-color: #f7c873; box-shadow: 0 0 22px rgba(247,200,115,0.48); animation: legendaryPulse 2.5s ease-in-out infinite; }
+  @keyframes legendaryPulse {
+    0%,100% { box-shadow: 0 0 22px rgba(247,200,115,0.40); }
+    50%     { box-shadow: 0 0 30px rgba(247,200,115,0.65); }
+  }
+  .inv-name { font-size: 12.5px; font-weight: 700; text-align: center; line-height: 1.2; }
+  .inv-rarity-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .inv-rarity-label.common    { color: #9aa3b2; }
+  .inv-rarity-label.rare      { color: #5dbb63; }
+  .inv-rarity-label.epic      { color: #a45ed0; }
+  .inv-rarity-label.mythic    { color: #ef4444; }
+  .inv-rarity-label.legendary { color: #f7c873; }
+
+  /* Skin swatches (piece) */
+  .swatch-piece-pair {
+    width: 70px; height: 40px; display: grid; grid-template-columns: 1fr 1fr;
+    gap: 4px; align-items: center; padding: 4px;
+  }
+  .swatch-piece {
+    width: 100%; aspect-ratio: 1; border-radius: 50%;
+    background: var(--sp-bg, #ccc);
+    box-shadow:
+      inset 0 -2px 3px rgba(0,0,0,0.2),
+      inset 0 1px 2px rgba(255,255,255,0.4),
+      0 0 0 1.5px var(--sp-edge, #888),
+      0 2px 4px rgba(0,0,0,0.25);
+  }
+
+  /* Skin swatches (board) */
+  .swatch-board {
+    width: 70px; height: 40px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr;
+    border-radius: 4px; overflow: hidden;
+    border: 2px solid var(--sb-frame, #444);
+  }
+  .swatch-board > div { width: 100%; height: 100%; }
+
+  /* Box display */
+  .boxes-strip {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;
+  }
+  .box-card {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 10px; text-align: center;
+    cursor: pointer; transition: all 0.15s; position: relative;
+  }
+  .box-card:hover:not(.empty) { transform: translateY(-2px); background: var(--surface-3); }
+  .box-card.empty { opacity: 0.55; cursor: default; }
+  .box-card .icon { font-size: 38px; line-height: 1; margin-bottom: 4px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
+  .box-card .name { font-size: 12px; font-weight: 700; }
+  .box-card .count { font-size: 18px; font-weight: 800; color: var(--accent); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .box-card.has-some { border-color: var(--accent); box-shadow: 0 0 16px rgba(247,200,115,0.18); animation: boxPulse 2s infinite; }
+  @keyframes boxPulse {
+    0%,100% { box-shadow: 0 0 16px rgba(247,200,115,0.18); }
+    50%     { box-shadow: 0 0 26px rgba(247,200,115,0.35); }
+  }
+  .box-card .badge {
+    position: absolute; top: 6px; right: 6px;
+    background: var(--bad); color: #fff; border-radius: 99px;
+    min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; font-weight: 800;
+    display: grid; place-items: center;
+  }
+
+  /* Box opening modal */
+  .open-stage { text-align: center; padding: 14px 0 8px; min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .lootbox-big {
+    width: 140px; height: 140px;
+    display: grid; place-items: center;
+    font-size: 96px; line-height: 1;
+    filter: drop-shadow(0 14px 22px rgba(0,0,0,0.4));
+    position: relative;
+  }
+  .lootbox-big::after {
+    content: ''; position: absolute; inset: -30px; border-radius: 50%;
+    background: radial-gradient(circle, var(--bx-glow, rgba(247,200,115,0.4)) 0%, transparent 65%);
+    z-index: -1; opacity: 0.7;
+  }
+  .lootbox-big.cardboard { --bx-glow: rgba(201,168,120,0.4); }
+  .lootbox-big.silver    { --bx-glow: rgba(216,220,224,0.5); }
+  .lootbox-big.gold      { --bx-glow: rgba(247,200,115,0.7); animation: legendaryPulse 1.6s ease-in-out infinite; }
+  .lootbox-big.shake { animation: boxShake 0.5s 4; }
+  @keyframes boxShake {
+    0%,100% { transform: translateX(0) rotate(0); }
+    25%     { transform: translateX(-8px) rotate(-5deg); }
+    75%     { transform: translateX(8px)  rotate(5deg); }
+  }
+  .lootbox-big.burst { animation: boxBurst 0.45s forwards; }
+  @keyframes boxBurst {
+    0%   { transform: scale(1)   rotate(0);   opacity: 1; filter: brightness(1); }
+    50%  { transform: scale(1.5) rotate(20deg); opacity: 1; filter: brightness(3); }
+    100% { transform: scale(2.4) rotate(40deg); opacity: 0; filter: brightness(5); }
+  }
+
+  .reveal-tile {
+    opacity: 0; transform: scale(0.6);
+    animation: revealIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    padding: 20px; border-radius: 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .reveal-tile.rarity-common    { background: radial-gradient(circle at 50% 20%, rgba(154,163,178,0.20), transparent 70%); }
+  .reveal-tile.rarity-rare      { background: radial-gradient(circle at 50% 20%, rgba(93,187,99,0.25),  transparent 70%); }
+  .reveal-tile.rarity-epic      { background: radial-gradient(circle at 50% 20%, rgba(164,94,208,0.30), transparent 70%); }
+  .reveal-tile.rarity-mythic    { background: radial-gradient(circle at 50% 20%, rgba(239,68,68,0.35),  transparent 70%); }
+  .reveal-tile.rarity-legendary { background: radial-gradient(circle at 50% 20%, rgba(247,200,115,0.45), transparent 70%); }
+  @keyframes revealIn {
+    to { opacity: 1; transform: scale(1); }
+  }
+  .reveal-big-swatch { padding: 14px; border-radius: 14px; border: 2px solid; }
+  .reveal-big-swatch.rarity-common    { border-color: #6a7282; }
+  .reveal-big-swatch.rarity-rare      { border-color: #5dbb63; }
+  .reveal-big-swatch.rarity-epic      { border-color: #a45ed0; }
+  .reveal-big-swatch.rarity-mythic    { border-color: #ef4444; }
+  .reveal-big-swatch.rarity-legendary { border-color: #f7c873; }
+  .reveal-big-swatch .swatch-piece-pair { width: 120px; height: 60px; }
+  .reveal-big-swatch .swatch-board { width: 120px; height: 60px; }
+  .reveal-rarity {
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px;
+  }
+  .reveal-name { font-size: 22px; font-weight: 800; }
+  .reveal-meta { font-size: 12px; color: var(--text-dim); }
+  .reveal-dup  { font-size: 12px; color: var(--warn); font-weight: 600; }
+
+  /* ===== Case roulette (CS:GO-style) ===== */
+  .drop-chances {
+    display: flex; gap: 4px; margin: 14px 0 18px;
+    border-radius: 8px; overflow: hidden; height: 28px;
+  }
+  .drop-seg {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+  .drop-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; margin-bottom: 14px; justify-content: center; }
+  .drop-legend .leg-item { display: inline-flex; align-items: center; gap: 6px; }
+  .drop-legend .leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  .case-roulette {
+    width: 100%;
+    height: 152px;
+    overflow: hidden;
+    position: relative;
+    border-radius: 12px;
+    background: linear-gradient(180deg, var(--surface-2), var(--surface-3));
+    border: 1px solid var(--border-strong);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.4);
+    margin: 14px 0;
+  }
+  .case-roulette::before, .case-roulette::after {
+    content: ''; position: absolute; top: 0; bottom: 0; width: 80px; z-index: 4; pointer-events: none;
+  }
+  .case-roulette::before { left: 0;
+    background: linear-gradient(to right, var(--surface) 10%, rgba(0,0,0,0) 100%); }
+  .case-roulette::after { right: 0;
+    background: linear-gradient(to left, var(--surface) 10%, rgba(0,0,0,0) 100%); }
+  .case-marker {
+    position: absolute; top: 0; bottom: 0; left: 50%; width: 3px;
+    background: var(--accent); z-index: 3; transform: translateX(-1.5px);
+    box-shadow: 0 0 14px rgba(247,200,115,0.7);
+  }
+  .case-marker::before, .case-marker::after {
+    content: ''; position: absolute; left: -8px; width: 18px; height: 12px;
+    background: var(--accent);
+  }
+  .case-marker::before { top: 0; clip-path: polygon(50% 100%, 100% 0, 0 0); }
+  .case-marker::after  { bottom: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .case-strip {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    will-change: transform;
+    padding: 8px 0;
+  }
+  .case-tile {
+    flex: 0 0 110px;
+    height: 136px;
+    margin: 0 3px;
+    border-radius: 10px;
+    border: 2px solid;
+    background: var(--surface);
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    padding: 10px 6px 8px;
+    box-sizing: border-box;
+    position: relative; overflow: hidden;
+  }
+  .case-tile::before {
+    content: ''; position: absolute; inset: 0;
+    background: var(--tile-glow, transparent);
+    opacity: 0.25; pointer-events: none;
+  }
+  .case-tile.rarity-common    { border-color: #6a7282; --tile-glow: linear-gradient(180deg, rgba(154,163,178,0.12), transparent); }
+  .case-tile.rarity-rare      { border-color: #5dbb63; --tile-glow: linear-gradient(180deg, rgba(93,187,99,0.20), transparent); }
+  .case-tile.rarity-epic      { border-color: #a45ed0; --tile-glow: linear-gradient(180deg, rgba(164,94,208,0.25), transparent); }
+  .case-tile.rarity-mythic    { border-color: #ef4444; --tile-glow: linear-gradient(180deg, rgba(239,68,68,0.30), transparent); }
+  .case-tile.rarity-legendary { border-color: #f7c873; --tile-glow: linear-gradient(180deg, rgba(247,200,115,0.40), transparent); }
+  .case-tile .name {
+    font-size: 11px; font-weight: 700; text-align: center; line-height: 1.15;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+  .case-tile.win-glow {
+    animation: winFlash 0.4s ease-in-out 3 alternate;
+  }
+  @keyframes winFlash {
+    from { filter: brightness(1); }
+    to   { filter: brightness(1.8); }
+  }
+
+  /* ===== Story / Campaign ===== */
+  .camp-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+  }
+  .camp-header h2 { margin: 0; font-size: 26px; }
+  .worlds-list { display: flex; flex-direction: column; gap: 18px; }
+  .world-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+  }
+  .world-card.locked { opacity: 0.55; }
+  .world-head {
+    display: flex; align-items: center; gap: 14px; padding: 16px 18px;
+    background: linear-gradient(135deg, var(--world-color, #3a5a8a), var(--world-color-2, #1a2a5a));
+    color: #fff;
+    position: relative;
+  }
+  .world-head .emoji { font-size: 38px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
+  .world-head .title { font-size: 19px; font-weight: 800; letter-spacing: -0.2px; }
+  .world-head .desc { font-size: 12.5px; opacity: 0.85; margin-top: 2px; }
+  .world-head .progress {
+    margin-left: auto;
+    font-weight: 700;
+    background: rgba(0,0,0,0.25); padding: 6px 12px; border-radius: 99px; font-size: 13px;
+    backdrop-filter: blur(8px);
+  }
+  .world-map {
+    position: relative; height: 280px;
+    background:
+      radial-gradient(circle at 20% 80%, rgba(255,255,255,0.06) 0%, transparent 30%),
+      radial-gradient(circle at 80% 20%, rgba(255,255,255,0.04) 0%, transparent 30%),
+      linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.20)),
+      linear-gradient(135deg, var(--world-color, #3a5a8a) 0%, var(--world-color-2, #1a2a5a) 100%);
+    overflow: hidden;
+  }
+  .map-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .map-node {
+    position: absolute; transform: translate(-50%, -50%);
+    text-align: center; cursor: pointer; transition: transform 0.15s;
+    z-index: 2;
+    width: 80px;
+  }
+  .map-node:hover.available { transform: translate(-50%, -50%) scale(1.1); }
+  .map-node .circle {
+    width: 54px; height: 54px; margin: 0 auto;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 28px;
+    background: rgba(255,255,255,0.95);
+    border: 3px solid #fff;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+  }
+  .map-node.locked { cursor: default; }
+  .map-node.locked .circle {
+    background: rgba(40,40,40,0.85); color: #888;
+    border-color: rgba(255,255,255,0.2);
+    font-size: 22px;
+  }
+  .map-node.completed .circle {
+    background: linear-gradient(135deg, #80e090, #4aa860);
+    border-color: #aef2bc;
+    box-shadow: 0 6px 14px rgba(74,168,96,0.5);
+  }
+  .map-node.available .circle {
+    background: linear-gradient(135deg, #ffe18c, #f5a83b);
+    border-color: #ffdf80;
+    box-shadow: 0 6px 18px rgba(245,168,59,0.55);
+    animation: nodePulse 1.5s ease-in-out infinite;
+  }
+  @keyframes nodePulse {
+    0%,100% { box-shadow: 0 6px 18px rgba(245,168,59,0.45); }
+    50%     { box-shadow: 0 6px 24px rgba(245,168,59,0.75); }
+  }
+  .map-node.boss .circle {
+    width: 70px; height: 70px; font-size: 36px;
+    border-width: 4px;
+  }
+  .map-node.boss.available .circle {
+    background: linear-gradient(135deg, #ff7a6b, #d8434c);
+    border-color: #ffb0a8;
+    box-shadow: 0 6px 22px rgba(216,67,76,0.65);
+  }
+  .map-node .name {
+    font-size: 11.5px; font-weight: 700; color: #fff;
+    margin-top: 6px; text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  }
+  .map-node .rating {
+    font-size: 10px; color: rgba(255,255,255,0.75); margin-top: 1px;
+  }
+  .map-node.completed .name::after { content: ' ✓'; color: #aef2bc; }
+  .map-node.boss .name { color: #ffd0c8; }
+  .world-card.locked .world-head { filter: grayscale(0.6); }
+  .world-locked-cta {
+    padding: 30px; text-align: center; color: var(--text-dim); font-size: 14px;
+  }
+
+  /* Puzzle board (mini) */
+  .puz-board {
+    width: 100%; max-width: 360px; aspect-ratio: 1/1;
+    margin: 0 auto 14px;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    border: 4px solid var(--board-dark-2, #5c3517);
+    user-select: none;
+  }
+  .puz-cell { position: relative; display: grid; place-items: center; cursor: pointer; }
+  .puz-cell.light { background: var(--board-light, #e8c98f); }
+  .puz-cell.dark  { background: var(--board-dark, #7a4a26); }
+  .puz-cell.sel::after {
+    content: ''; position: absolute; inset: 0; background: rgba(247,200,115,0.45);
+  }
+  .puz-cell.target::before {
+    content: ''; position: absolute; width: 30%; height: 30%; border-radius: 50%;
+    background: rgba(110,196,106,0.65); pointer-events: none;
+  }
+  .puz-cell.target.cap::before {
+    width: 0; height: 0; background: transparent;
+    border: 3px solid rgba(255,122,107,0.7); border-radius: 50%;
+    inset: 12%; box-sizing: border-box;
+  }
+  .puz-piece {
+    width: 78%; height: 78%; border-radius: 50%;
+    pointer-events: none; position: relative; z-index: 1;
+  }
+  .puz-piece.w {
+    background: var(--piece-w, linear-gradient(160deg, #f4ecd6 10%, #d8c191 90%));
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.2), inset 0 1px 3px rgba(255,255,255,0.5),
+                0 3px 6px rgba(0,0,0,0.25), 0 0 0 2px var(--piece-w-edge, #a07f3a);
+  }
+  .puz-piece.b {
+    background: var(--piece-b, linear-gradient(160deg, #3c3c3c 10%, #111 90%));
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.5), 0 3px 6px rgba(0,0,0,0.4),
+                0 0 0 2px var(--piece-b-edge, #000);
+  }
+  .puz-piece.king::after {
+    content: '♛'; position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 55%; line-height: 1; color: var(--accent); text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+  .puz-prompt { padding: 8px 4px 4px; text-align: center; font-size: 14px; }
+  .puz-prompt .muted { font-size: 12px; margin-top: 4px; }
+  .puz-stats-strip {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px;
+  }
+  .puz-stat { background: var(--surface-2); padding: 10px 8px; border-radius: 10px; text-align: center; }
+  .puz-stat .v { font-size: 20px; font-weight: 800; }
+  .puz-stat .l { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  /* Chat panel (multiplayer) */
+  .chat-panel { display: flex; flex-direction: column; max-height: 240px; }
+  .chat-msgs {
+    flex: 1; overflow-y: auto; padding: 4px 2px;
+    display: flex; flex-direction: column; gap: 6px; min-height: 100px;
+  }
+  .chat-msg {
+    padding: 6px 10px; border-radius: 10px; max-width: 88%;
+    font-size: 13px; line-height: 1.3;
+    word-wrap: break-word; word-break: break-word;
+  }
+  .chat-msg.me   { background: var(--accent-grad); color: #2a1c00; align-self: flex-end; }
+  .chat-msg.them { background: var(--surface-2); color: var(--text); align-self: flex-start; }
+  .chat-input-row { display: flex; gap: 6px; margin-top: 8px; }
+  .chat-input-row input {
+    flex: 1; padding: 8px 12px; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 13px;
+  }
+  .chat-quick { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .chat-quick button {
+    padding: 4px 8px; font-size: 14px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 99px;
+  }
+
+  /* Tournament bracket */
+  .bracket {
+    display: flex; gap: 30px; padding: 14px 8px; overflow-x: auto;
+    align-items: stretch;
+  }
+  .bracket-round {
+    display: flex; flex-direction: column; justify-content: space-around;
+    gap: 14px; min-width: 160px;
+  }
+  .bracket-match {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 10px; font-size: 13px; min-height: 60px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .bracket-match.playable { border-color: var(--accent); cursor: pointer; }
+  .bracket-match.playable:hover { background: var(--surface-3); }
+  .bracket-player { padding: 3px 4px; }
+  .bracket-player.win { font-weight: 800; color: var(--good); }
+  .bracket-player.lose { color: var(--text-faint); text-decoration: line-through; }
+  .bracket-sep { border-top: 1px solid var(--border); margin: 2px 0; }
+
+  /* Friends list */
+  .friend-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .friend-row:last-child { border-bottom: none; }
+  .friend-avatar {
+    width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2);
+    display: grid; place-items: center; font-size: 20px; flex-shrink: 0;
+  }
+  .friend-meta { flex: 1; min-width: 0; }
+  .friend-name { font-weight: 700; font-size: 14px; }
+  .friend-sub { font-size: 11.5px; color: var(--text-dim); }
+
+  /* Cloud LB config */
+  .cloud-banner {
+    background: linear-gradient(135deg, rgba(110,168,254,0.15), rgba(122,200,255,0.05));
+    border: 1px solid rgba(110,168,254,0.30); border-radius: 10px;
+    padding: 10px 12px; font-size: 12.5px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .cloud-banner.online { background: linear-gradient(135deg, rgba(110,196,106,0.18), rgba(110,196,106,0.05)); border-color: rgba(110,196,106,0.40); }
+
+  /* Campaign banner inside game screen */
+  .camp-banner {
+    background: linear-gradient(135deg, var(--world-color, #3a5a8a), var(--world-color-2, #1a2a5a));
+    color: #fff; padding: 12px 14px; border-radius: var(--radius);
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+  }
+  .camp-banner .emoji { font-size: 20px; }
+  .camp-banner strong { font-weight: 700; }
+
+  /* ===== Sidebar ===== */
+  .sidebar { display: flex; flex-direction: column; gap: 14px; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+  }
+  .panel h3 { margin: 0 0 12px; font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-dim); }
+  .moves-list {
+    max-height: 280px; overflow-y: auto; font-size: 13px;
+    display: grid; grid-template-columns: 24px 1fr 1fr; gap: 4px 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .moves-list::-webkit-scrollbar { width: 6px; }
+  .moves-list::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+  .moves-list .turn-num { color: var(--text-faint); padding: 2px 0; }
+  .moves-list .mv {
+    padding: 2px 6px; border-radius: 5px; cursor: pointer;
+    transition: background 0.1s; color: var(--text);
+  }
+  .moves-list .mv:hover { background: var(--surface-2); }
+  .moves-list .mv.cur { background: var(--surface-3); color: var(--accent); font-weight: 600; }
+
+  .ctrls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ctrls .btn { flex: 1; min-width: 100px; }
+
+  /* ===== Modal ===== */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    display: grid; place-items: center; padding: 20px; z-index: 100;
+    animation: fadeIn 0.2s ease;
+    backdrop-filter: blur(4px);
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px; max-width: 540px; width: 100%;
+    max-height: 90vh; overflow-y: auto;
+    box-shadow: var(--shadow);
+    animation: popIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal h2 { margin: 0 0 6px; font-size: 22px; }
+  .modal .modal-sub { color: var(--text-dim); margin-bottom: 18px; font-size: 14px; }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    width: 32px; height: 32px; border-radius: 8px; background: var(--surface-2);
+    display: grid; place-items: center; color: var(--text-dim);
+  }
+  .modal-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .modal-row:last-child { border-bottom: none; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .modal-actions .btn { flex: 1; }
+
+  /* Result modal */
+  .result-emoji { font-size: 56px; text-align: center; margin-bottom: 4px; }
+  .result-title { font-size: 24px; font-weight: 800; text-align: center; }
+  .result-sub { color: var(--text-dim); text-align: center; margin: 4px 0 18px; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .result-stat { background: var(--surface-2); padding: 12px; border-radius: 10px; text-align: center; }
+  .result-stat .v { font-size: 22px; font-weight: 800; }
+  .result-stat .l { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  /* Share modal */
+  .share-link-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .share-link-row input { flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface-3); border: 1px solid var(--border-strong);
+    color: var(--text); padding: 12px 18px; border-radius: 99px;
+    box-shadow: var(--shadow); z-index: 200;
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 2.4s forwards;
+    font-size: 14px; font-weight: 500;
+  }
+  @keyframes toastIn { from { transform: translate(-50%, 30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  @keyframes toastOut { to { transform: translate(-50%, 30px); opacity: 0; } }
+
+  /* ===== AI Coach / Analysis ===== */
+  .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  .analysis-card { background: var(--surface-2); padding: 14px; border-radius: 10px; }
+  .analysis-card .v { font-size: 22px; font-weight: 800; }
+  .analysis-card .l { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .accuracy-bar {
+    height: 8px; background: var(--surface-2); border-radius: 4px;
+    overflow: hidden; margin-top: 8px; position: relative;
+  }
+  .accuracy-bar-fill {
+    height: 100%; background: linear-gradient(90deg, var(--bad), var(--warn), var(--good));
+    border-radius: 4px; transition: width 0.6s ease;
+  }
+  .move-tape {
+    display: flex; gap: 3px; flex-wrap: wrap; margin: 14px 0;
+  }
+  .move-tape .dot {
+    width: 14px; height: 14px; border-radius: 4px;
+    background: var(--surface-3);
+    cursor: pointer; transition: transform 0.1s;
+  }
+  .move-tape .dot:hover { transform: scale(1.3); }
+  .move-tape .dot.best { background: var(--good); }
+  .move-tape .dot.good { background: #97c466; }
+  .move-tape .dot.inaccurate { background: var(--warn); }
+  .move-tape .dot.mistake { background: #ff9a4d; }
+  .move-tape .dot.blunder { background: var(--bad); }
+  .blunder-list { list-style: none; padding: 0; margin: 14px 0 0; }
+  .blunder-list li {
+    padding: 10px 12px; background: var(--surface-2); border-radius: 8px; margin-bottom: 8px;
+    display: flex; gap: 10px; font-size: 13.5px;
+    border-left: 3px solid var(--warn);
+  }
+  .blunder-list li.blunder { border-color: var(--bad); }
+  .blunder-list li.mistake { border-color: #ff9a4d; }
+  .blunder-tag {
+    flex-shrink: 0; padding: 2px 8px; border-radius: 99px;
+    font-size: 11px; font-weight: 700; height: 22px; display: inline-flex; align-items: center;
+  }
+  .blunder-tag.blunder { background: rgba(255,122,107,0.18); color: var(--bad); }
+  .blunder-tag.mistake { background: rgba(255,154,77,0.18); color: #ff9a4d; }
+  .blunder-tag.inaccurate { background: rgba(255,184,77,0.18); color: var(--warn); }
+
+  /* ===== Pro modal ===== */
+  .pro-hero { text-align: center; margin-bottom: 20px; }
+  .pro-hero .emoji { font-size: 50px; }
+  .pro-hero h2 { background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 28px; }
+  .pro-hero p { color: var(--text-dim); margin-top: 6px; }
+  .pro-features { list-style: none; padding: 0; margin: 0 0 20px; }
+  .pro-features li { padding: 10px 0; display: flex; align-items: center; gap: 12px; font-size: 14px; border-bottom: 1px solid var(--border); }
+  .pro-features li:last-child { border-bottom: none; }
+  .pro-check {
+    width: 24px; height: 24px; border-radius: 50%; background: var(--accent-grad);
+    color: #2a1c00; display: grid; place-items: center; flex-shrink: 0; font-weight: 800; font-size: 14px;
+  }
+  .pro-price-row { display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 10px 0 18px; }
+  .pro-price { font-size: 36px; font-weight: 800; }
+  .pro-price-unit { color: var(--text-dim); font-size: 14px; }
+
+  /* Skins picker */
+  .skin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 6px; }
+  .skin-opt {
+    padding: 12px; background: var(--surface-2); border-radius: 10px;
+    border: 2px solid transparent; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .skin-opt:hover { background: var(--surface-3); }
+  .skin-opt.sel { border-color: var(--accent); }
+  .skin-opt .preview { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; }
+  .skin-opt .label { font-size: 13px; font-weight: 600; }
+  .skin-opt .sub { font-size: 11px; color: var(--text-dim); }
+  .skin-opt.pro::after { content: 'PRO'; margin-left: auto; font-size: 10px; font-weight: 800; padding: 3px 7px; border-radius: 99px; background: var(--accent-grad); color: #2a1c00; }
+
+  /* Leaderboard */
+  .lb-tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; margin-bottom: 14px; }
+  .lb-tab { flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-dim); cursor: pointer; text-align: center; }
+  .lb-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-soft); }
+  .lb-row {
+    display: grid; grid-template-columns: 30px 36px 1fr auto;
+    align-items: center; padding: 10px 8px; gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row.me { background: rgba(247,200,115,0.08); border-radius: 8px; }
+  .lb-rank { color: var(--text-dim); font-weight: 700; font-size: 14px; text-align: center; }
+  .lb-rank.gold { color: #f7c873; font-size: 16px; }
+  .lb-rank.silver { color: #c4c8d0; font-size: 16px; }
+  .lb-rank.bronze { color: #d99068; font-size: 16px; }
+  .lb-avatar { width: 32px; height: 32px; border-radius: 8px; background: var(--surface-2); display: grid; place-items: center; font-size: 18px; }
+  .lb-meta { display: flex; flex-direction: column; }
+  .lb-name { font-weight: 600; font-size: 14px; }
+  .lb-city { font-size: 11.5px; color: var(--text-dim); }
+  .lb-rating { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+  /* Coach character bubble during play */
+  .coach-bubble {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--char-color, var(--accent));
+    padding: 12px 14px;
+    border-radius: 10px; font-size: 13.5px; line-height: 1.45;
+    display: flex; gap: 12px; align-items: flex-start;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+  .coach-avatar {
+    width: 46px; height: 46px; flex-shrink: 0;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), rgba(0,0,0,0.05)), var(--surface-2);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 26px; line-height: 1;
+    border: 2px solid var(--char-color, var(--accent));
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18), 0 0 14px var(--char-glow, rgba(247,200,115,0.20));
+    animation: coachBob 2.6s ease-in-out infinite;
+  }
+  @keyframes coachBob {
+    0%,100% { transform: translateY(0) rotate(-2deg); }
+    50%     { transform: translateY(-3px) rotate(3deg); }
+  }
+  .coach-body { flex: 1; min-width: 0; }
+  .coach-name {
+    font-size: 11px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--char-color, var(--accent));
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .coach-name .swap {
+    margin-left: auto;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 9px;
+    padding: 1px 6px; border-radius: 99px;
+    cursor: pointer; transition: all 0.15s;
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 700;
+  }
+  .coach-name .swap:hover { color: var(--text); background: var(--surface-3); }
+  .coach-text { color: var(--text); font-size: 13.5px; }
+
+  /* Reward (box drop) display on result screen — passive, no click */
+  .reward-display {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: 12px 14px; border-radius: 14px;
+    margin: 14px auto 6px; max-width: 320px;
+    position: relative;
+  }
+  .reward-display.rarity-common    { box-shadow: 0 0 14px rgba(154,163,178,0.15); border-color: rgba(154,163,178,0.30); }
+  .reward-display.rarity-epic      { box-shadow: 0 0 16px rgba(164,94,208,0.20);  border-color: rgba(164,94,208,0.40); }
+  .reward-display.rarity-legendary { box-shadow: 0 0 22px rgba(247,200,115,0.32); border-color: rgba(247,200,115,0.55);
+                                     animation: rewardPulse 2.4s ease-in-out infinite; }
+  @keyframes rewardPulse {
+    0%,100% { box-shadow: 0 0 22px rgba(247,200,115,0.28); }
+    50%     { box-shadow: 0 0 30px rgba(247,200,115,0.55); }
+  }
+  .reward-icon-wrap {
+    width: 56px; height: 56px; flex-shrink: 0;
+    display: grid; place-items: center;
+    border-radius: 14px;
+    background: var(--surface-3);
+  }
+  .reward-icon { font-size: 34px; line-height: 1; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
+  .reward-text { flex: 1; }
+  .reward-title { font-weight: 800; font-size: 14px; }
+  .reward-sub   { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; }
+
+  /* Responsive */
+  @media (max-width: 880px) {
+    .game-layout { grid-template-columns: 1fr; }
+    .sidebar { order: 2; }
+  }
+  @media (max-width: 540px) {
+    .topbar .brand-sub { display: none; }
+    .menu-hero { padding: 24px 0 18px; }
+    .board-wrap { padding: 8px; }
+    .modal { padding: 20px; }
+  }
+
+  /* Misc */
+  .row { display: flex; align-items: center; gap: 10px; }
+  .between { justify-content: space-between; }
+  .grow { flex: 1; }
+  .muted { color: var(--text-dim); }
+  .center { text-align: center; }
+  .mt-2 { margin-top: 8px; } .mt-3 { margin-top: 14px; } .mt-4 { margin-top: 20px; }
+  .hidden { display: none !important; }
+  .switch {
+    width: 38px; height: 22px; background: var(--surface-3); border-radius: 99px; position: relative;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left 0.2s; }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { left: 18px; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="modal-root"></div>
+  <div id="toast-root"></div>
+
+  <!-- PeerJS for multiplayer; optional, graceful fallback if blocked -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="window.PEERJS_FAILED=true"></script>
+
+  <script>
+  /* ===================================================================
+   *  ДАМКА — A modern Russian-draughts platform with AI Coach,
+   *  online multiplayer, blitz mode, leaderboard, Pro skins.
+   *  Single-file build.
+   * ================================================================ */
+
+  // ============ Constants ============
+  const SIZE = 8;
+  const DIRS = [[-1,-1],[-1,1],[1,-1],[1,1]];
+  const WHITE = 1, BLACK = -1;
+  const W_MAN = 1, W_KING = 2, B_MAN = -1, B_KING = -2;
+
+  const AI_LEVELS = [
+    { id: 1, name: 'Новичок', depth: 1, rand: 0.45, rating: 600 },
+    { id: 2, name: 'Любитель', depth: 3, rand: 0.18, rating: 900 },
+    { id: 3, name: 'Уверенный', depth: 4, rand: 0.06, rating: 1200 },
+    { id: 4, name: 'Опытный', depth: 5, rand: 0.02, rating: 1500 },
+    { id: 5, name: 'Мастер', depth: 6, rand: 0.0, rating: 1800 },
+  ];
+
+  const CITIES = [
+    'Алматы','Астана','Шымкент','Караганда','Актобе','Тараз','Павлодар',
+    'Усть-Каменогорск','Семей','Атырау','Костанай','Кызылорда','Уральск','Петропавловск',
+    'Туркестан','Актау','Темиртау','Кокшетау','Талдыкорган','Экибастуз',
+    'Москва','Санкт-Петербург','Минск','Бишкек','Ташкент','Киев','Тбилиси','Ереван','Баку','Душанбе'
+  ];
+
+  const AVATARS = ['🦊','🐺','🦁','🐯','🐸','🐲','🦅','🦉','🐢','🐙','🦄','🐝','🦝','🐼','🐧','🦊'];
+
+  // ============ Rarity + Box system ============
+  const RARITY = {
+    common:    { id:'common',    name:'Обычный',     color:'#9aa3b2', glow:'rgba(154,163,178,0.25)' },
+    rare:      { id:'rare',      name:'Редкий',      color:'#5dbb63', glow:'rgba(93,187,99,0.30)' },
+    epic:      { id:'epic',      name:'Эпический',   color:'#a45ed0', glow:'rgba(164,94,208,0.40)' },
+    mythic:    { id:'mythic',    name:'Мифический',  color:'#ef4444', glow:'rgba(239,68,68,0.45)' },
+    legendary: { id:'legendary', name:'Легендарный', color:'#f7c873', glow:'rgba(247,200,115,0.55)' },
+  };
+
+  const BOX_TYPES = {
+    cardboard: {
+      id:'cardboard', name:'Картонная', icon:'📦', color:'#c9a878',
+      drops: { common: 0.70, epic: 0.30 },
+      desc: 'Содержит обычные или эпические скины',
+    },
+    silver: {
+      id:'silver', name:'Серебряная', icon:'🎁', color:'#d8dce0',
+      drops: { rare: 0.60, epic: 0.30, mythic: 0.10 },
+      desc: 'Редкие, эпические или (редко) мифические скины',
+    },
+    gold: {
+      id:'gold', name:'Золотая', icon:'👑', color:'#ffd870',
+      drops: { mythic: 0.75, legendary: 0.25 },
+      desc: 'Мифические или (редко) легендарные скины',
+    },
+  };
+
+  const SKIN_CATALOG = {
+    pieces: [
+      { id:'classic', name:'Классика', rarity:'common', starter:true,
+        w:'linear-gradient(160deg, #f4ecd6 10%, #d8c191 90%)',
+        b:'linear-gradient(160deg, #3c3c3c 10%, #111 90%)',
+        edgeW:'#a07f3a', edgeB:'#000' },
+      { id:'stone', name:'Камень', rarity:'common',
+        w:'linear-gradient(160deg, #d1cabe 10%, #8a8275 90%)',
+        b:'linear-gradient(160deg, #4a4339 10%, #1c1810 90%)',
+        edgeW:'#5a544a', edgeB:'#1a1610' },
+      { id:'bronze', name:'Бронза', rarity:'common',
+        w:'linear-gradient(160deg, #e0a878 10%, #864a1f 90%)',
+        b:'linear-gradient(160deg, #3c1f0a 10%, #150700 90%)',
+        edgeW:'#5a3010', edgeB:'#0a0500' },
+      { id:'silver', name:'Серебро', rarity:'rare',
+        w:'linear-gradient(160deg, #f0f4fa 10%, #a0a8b8 90%)',
+        b:'linear-gradient(160deg, #4a525e 10%, #1a1d22 90%)',
+        edgeW:'#7a8088', edgeB:'#0f1318' },
+      { id:'ocean', name:'Океан', rarity:'rare',
+        w:'radial-gradient(circle at 30% 30%, #b7e6ff 0%, #2080c0 70%)',
+        b:'radial-gradient(circle at 30% 30%, #4080a0 0%, #08203a 70%)',
+        edgeW:'#1a5080', edgeB:'#020a18' },
+      { id:'forest', name:'Лес', rarity:'rare',
+        w:'radial-gradient(circle at 30% 30%, #c5e3a0 0%, #4a8a3a 70%)',
+        b:'radial-gradient(circle at 30% 30%, #2a5028 0%, #0a1808 70%)',
+        edgeW:'#1a4018', edgeB:'#020800' },
+      { id:'marble', name:'Мрамор', rarity:'epic',
+        w:'linear-gradient(160deg, #fafafa 10%, #c0c0c0 90%)',
+        b:'linear-gradient(160deg, #4a4a4a 10%, #0a0a0a 90%)',
+        edgeW:'#888', edgeB:'#000' },
+      { id:'crystal', name:'Кристалл', rarity:'epic',
+        w:'linear-gradient(135deg, #e0f8ff 0%, #80c8ff 50%, #c0a0ff 100%)',
+        b:'linear-gradient(135deg, #2a3a5a 0%, #1a1a3a 50%, #0a0a2a 100%)',
+        edgeW:'#80a0d0', edgeB:'#0a0a2a' },
+      { id:'galaxy', name:'Галактика', rarity:'epic',
+        w:'radial-gradient(circle at 50% 50%, #6040c0 0%, #2010a0 50%, #100828 100%)',
+        b:'radial-gradient(circle at 30% 30%, #2a1838 0%, #08000a 80%)',
+        edgeW:'#6040c0', edgeB:'#08000a' },
+      { id:'neon', name:'Неон', rarity:'mythic',
+        w:'radial-gradient(circle at 30% 30%, #b7faff 0%, #00d4ff 70%)',
+        b:'radial-gradient(circle at 30% 30%, #ffb0e7 0%, #ff21a8 70%)',
+        edgeW:'#008fbd', edgeB:'#a00065' },
+      { id:'magma', name:'Магма', rarity:'mythic',
+        w:'radial-gradient(circle at 30% 30%, #ffd070 0%, #ff4020 50%, #802000 100%)',
+        b:'radial-gradient(circle at 30% 30%, #602010 0%, #100000 80%)',
+        edgeW:'#702000', edgeB:'#100000' },
+      { id:'gold', name:'Золото', rarity:'legendary',
+        w:'linear-gradient(160deg, #ffe9a0 10%, #c89b3c 90%)',
+        b:'linear-gradient(160deg, #4a3000 10%, #1a0f00 90%)',
+        edgeW:'#8b6914', edgeB:'#0a0500' },
+    ],
+    boards: [
+      { id:'wood', name:'Дерево', rarity:'common', starter:true,
+        light:'#e8c98f', dark:'#7a4a26', light2:'#efd8a8', frame:'#5c3517' },
+      { id:'cardboard', name:'Картон', rarity:'common',
+        light:'#d8c08a', dark:'#8a6440', frame:'#6a4828' },
+      { id:'pine', name:'Сосна', rarity:'common',
+        light:'#f0d9a8', dark:'#8a6038', frame:'#5a3818' },
+      { id:'mint', name:'Мята', rarity:'rare',
+        light:'#dcf3e3', dark:'#5b9d80', frame:'#3a7a60' },
+      { id:'sapphire', name:'Сапфир', rarity:'rare',
+        light:'#c0e0f0', dark:'#3060a0', frame:'#1a3a70' },
+      { id:'marble-dark', name:'Тёмный мрамор', rarity:'epic',
+        light:'#e8e8ec', dark:'#3a3a44', frame:'#1a1a22' },
+      { id:'royal', name:'Королевский', rarity:'epic',
+        light:'#e8d8ff', dark:'#6030a0', frame:'#3a1860' },
+      { id:'volcano', name:'Вулкан', rarity:'mythic',
+        light:'#f4b890', dark:'#7a2a18', frame:'#280808' },
+      { id:'cyber', name:'Кибер', rarity:'mythic',
+        light:'#7ac8ff', dark:'#1a3a78', frame:'#08142a' },
+      { id:'diamond', name:'Алмаз', rarity:'legendary',
+        light:'#f0f4ff', dark:'#7a8ab0', frame:'#3a4a70' },
+    ],
+  };
+
+  function getSkin(kind, id) {
+    return SKIN_CATALOG[kind].find(s => s.id === id) || SKIN_CATALOG[kind][0];
+  }
+
+  function rollFromBox(boxType) {
+    const cfg = BOX_TYPES[boxType];
+    const r = Math.random();
+    let acc = 0;
+    let pickedRarity = Object.keys(cfg.drops)[0];
+    for (const [rar, p] of Object.entries(cfg.drops)) {
+      acc += p;
+      if (r < acc) { pickedRarity = rar; break; }
+    }
+    // 50/50 piece or board; fallback if pool empty for that rarity
+    let kind = Math.random() < 0.5 ? 'pieces' : 'boards';
+    let pool = SKIN_CATALOG[kind].filter(s => s.rarity === pickedRarity);
+    if (pool.length === 0) {
+      kind = kind === 'pieces' ? 'boards' : 'pieces';
+      pool = SKIN_CATALOG[kind].filter(s => s.rarity === pickedRarity);
+    }
+    const skin = pool[Math.floor(Math.random() * pool.length)];
+    return { kind, skin, rarity: pickedRarity };
+  }
+
+  // ============ i18n (RU / EN / KK) ============
+  const LANGS = [
+    { id:'ru', name:'Русский',  flag:'🇷🇺' },
+    { id:'en', name:'English',  flag:'🇬🇧' },
+    { id:'kk', name:'Қазақша',  flag:'🇰🇿' },
+  ];
+  const I18N = {
+    ru: {
+      hello: 'Привет', play: 'Играть', menu: 'Меню', back: 'Назад', cancel: 'Отмена', save: 'Сохранить',
+      pwa_installed: 'Установлено! Можно играть из главного экрана.',
+      pwa_install: 'Установить как приложение',
+      mode_story: 'Сюжет', mode_ai: 'Против ИИ', mode_friend: 'С другом по ссылке',
+      mode_blitz: 'Блиц 3 минуты', mode_local: 'Вдвоём за устройством',
+      mode_inv: 'Инвентарь', mode_lb: 'Лидерборд', mode_pro: 'Дамка Pro',
+      mode_puzzles: 'Пазлы дня', mode_tournament: 'Турнир', mode_friends: 'Друзья',
+      stat_rating: 'Рейтинг', stat_wins: 'Побед', stat_losses: 'Поражений / ничьих', stat_winrate: 'Винрейт',
+      side_white: 'Белые', side_black: 'Чёрные',
+      lost_of: 'Потеряно',
+      moves: 'Ходов', duration: 'Длительность',
+      analysis: 'Разбор партии', rematch: 'Реванш',
+      result_win: 'Вы победили!', result_loss: 'Поражение', result_draw: 'Ничья',
+      coach_change: '↻ сменить',
+      puzzle_today: 'Пазл дня', puzzle_streak: 'Серия дней', puzzle_solved: 'Решено!',
+      puzzle_find: 'Найди лучший ход для белых',
+      puzzle_wrong: 'Не лучший ход. Попробуй ещё.', puzzle_correct: '✓ Лучший ход!',
+      chat_send: 'Отправить', chat_placeholder: 'Сообщение…',
+      friends_add: 'Добавить в друзья', friends_invite: 'Пригласить',
+      tourney_name: 'Имя игрока', tourney_start: 'Начать турнир', tourney_winner: 'Чемпион',
+      lang: 'Язык',
+    },
+    en: {
+      hello: 'Hi', play: 'Play', menu: 'Menu', back: 'Back', cancel: 'Cancel', save: 'Save',
+      pwa_installed: 'Installed! Play from your home screen.',
+      pwa_install: 'Install as app',
+      mode_story: 'Story', mode_ai: 'vs AI', mode_friend: 'Friend by link',
+      mode_blitz: 'Blitz 3 min', mode_local: 'Pass & play',
+      mode_inv: 'Inventory', mode_lb: 'Leaderboard', mode_pro: 'Damka Pro',
+      mode_puzzles: 'Daily puzzles', mode_tournament: 'Tournament', mode_friends: 'Friends',
+      stat_rating: 'Rating', stat_wins: 'Wins', stat_losses: 'Losses / draws', stat_winrate: 'Winrate',
+      side_white: 'White', side_black: 'Black',
+      lost_of: 'Lost',
+      moves: 'Moves', duration: 'Duration',
+      analysis: 'Analysis', rematch: 'Rematch',
+      result_win: 'You won!', result_loss: 'Defeat', result_draw: 'Draw',
+      coach_change: '↻ swap',
+      puzzle_today: "Today's puzzle", puzzle_streak: 'Day streak', puzzle_solved: 'Solved!',
+      puzzle_find: 'Find the best move for white',
+      puzzle_wrong: 'Not the best move. Try again.', puzzle_correct: '✓ Best move!',
+      chat_send: 'Send', chat_placeholder: 'Message…',
+      friends_add: 'Add to friends', friends_invite: 'Invite',
+      tourney_name: 'Player name', tourney_start: 'Start tournament', tourney_winner: 'Champion',
+      lang: 'Language',
+    },
+    kk: {
+      hello: 'Сәлем', play: 'Ойнау', menu: 'Мәзір', back: 'Артқа', cancel: 'Болдырмау', save: 'Сақтау',
+      pwa_installed: 'Орнатылды! Басты экраннан ойнауға болады.',
+      pwa_install: 'Қосымша ретінде орнату',
+      mode_story: 'Сюжет', mode_ai: 'ЖИ-ға қарсы', mode_friend: 'Сілтеме арқылы достан',
+      mode_blitz: 'Блиц 3 мин', mode_local: 'Қатар отырып',
+      mode_inv: 'Инвентарь', mode_lb: 'Лидерлер', mode_pro: 'Дамка Pro',
+      mode_puzzles: 'Күнделікті пазл', mode_tournament: 'Турнир', mode_friends: 'Достар',
+      stat_rating: 'Рейтинг', stat_wins: 'Жеңіс', stat_losses: 'Жеңіліс / тең', stat_winrate: 'Жеңіс %',
+      side_white: 'Ақ', side_black: 'Қара',
+      lost_of: 'Жоғалтты',
+      moves: 'Жүріс', duration: 'Уақыты',
+      analysis: 'Талдау', rematch: 'Қайталау',
+      result_win: 'Сіз жеңдіңіз!', result_loss: 'Жеңіліс', result_draw: 'Тең',
+      coach_change: '↻ ауыстыру',
+      puzzle_today: 'Бүгінгі пазл', puzzle_streak: 'Күн қатарынан', puzzle_solved: 'Шешілді!',
+      puzzle_find: 'Ақ үшін ең жақсы жүрісті табыңыз',
+      puzzle_wrong: 'Ең жақсы емес. Тағы көріп көріңіз.', puzzle_correct: '✓ Ең жақсы жүріс!',
+      chat_send: 'Жіберу', chat_placeholder: 'Хабарлама…',
+      friends_add: 'Достарға қосу', friends_invite: 'Шақыру',
+      tourney_name: 'Ойыншы аты', tourney_start: 'Турнирді бастау', tourney_winner: 'Чемпион',
+      lang: 'Тіл',
+    },
+  };
+  function t(key) {
+    const lang = (state.profile && state.profile.lang) || 'ru';
+    return (I18N[lang] && I18N[lang][key]) || I18N.ru[key] || key;
+  }
+  // Make accessible before profile loads (used early by PWA hook)
+  window.t = t;
+
+  // ============ Coach characters (in-game hints) ============
+  const COACHES = [
+    {
+      id: 'fox', name: 'Хитрый Лис', emoji: '🦊', color: '#ff8c42', glow: 'rgba(255,140,66,0.30)',
+      cap:     (n) => n > 1 ? `Эй, тут ${n} шашек просят чтобы их хапнули. Не зевай!` : 'Свободная шашечка в зоне доступа. Бери, пока дают.',
+      multiCap:(n) => `Готовь котелок — рубим ${n} шашек одним махом! 🔥`,
+      center:  ()  => 'Слушай сюда: кто держит центр — тот и в дамках. Просто запомни.',
+      defense: ()  => 'Не разбредайся, задний ряд — твой бастион.',
+      idle:    ()  => 'Хитрость рождает преимущество. Просчитывай на 2 хода вперёд.',
+    },
+    {
+      id: 'owl', name: 'Сова-Профессор', emoji: '🦉', color: '#7aaaff', glow: 'rgba(122,170,255,0.30)',
+      cap:     (n) => `По правилам взятие обязательно. Вижу ${n > 1 ? `${n} вариантов` : 'возможность'} в позиции.`,
+      multiCap:(n) => `Цепное взятие из ${n} шашек. Рекомендую оптимизировать урон по сопернику.`,
+      center:  ()  => 'Стратегически: зона d4–e5 определяет исход порядка 70% партий.',
+      defense: ()  => 'Задняя горизонталь — структурная опора защиты. Не разрушайте её преждевременно.',
+      idle:    ()  => 'Каждый ход меняет позицию. Анализируйте перед тем как ходить.',
+    },
+    {
+      id: 'frog', name: 'Кваклогик', emoji: '🐸', color: '#5dbb63', glow: 'rgba(93,187,99,0.30)',
+      cap:     ()  => 'квак! шашечка прям просит чтобы её скушали 👀',
+      multiCap:(n) => `КВАК-КВАК!! ${n} шашек в комбо!! ща как прыгнем 🐸💨`,
+      center:  ()  => 'центр это лилия. сиди на ней крепче.',
+      defense: ()  => 'не отрывайся от пруда. сзади беда.',
+      idle:    ()  => 'квак. думай. квак.',
+    },
+    {
+      id: 'turtle', name: 'Мудрая Черепаха', emoji: '🐢', color: '#80c080', glow: 'rgba(128,192,128,0.30)',
+      cap:     ()  => 'Не спеши… но возьми. Шанс редок.',
+      multiCap:(n) => `Видишь? Терпение раскрыло путь к ${n} взятиям подряд.`,
+      center:  ()  => 'Тысячу лет шашки идут к центру. Иди и ты — медленно, верно.',
+      defense: ()  => 'Стена сзади подобна моему панцирю. Не ломай без нужды.',
+      idle:    ()  => 'Спешка — враг победы. Дыши и считай ходы.',
+    },
+    {
+      id: 'dragon', name: 'Огнедышащий', emoji: '🐲', color: '#e85a4c', glow: 'rgba(232,90,76,0.40)',
+      cap:     ()  => 'СОЖРИ ЕЁ!! 🔥',
+      multiCap:(n) => `${n} ВРАГОВ В ОГОНЬ!! 🐉🔥🔥`,
+      center:  ()  => 'ЗАХВАТИ ЦЕНТР И ВЫЖИГАЙ ИХ ПЛАНЫ.',
+      defense: ()  => 'Тыл — твой замок. Защищай огнём!',
+      idle:    ()  => 'Атакуй! Хладнокровие для трусов.',
+    },
+    {
+      id: 'unicorn', name: 'Радужный Единорог', emoji: '🦄', color: '#e078d8', glow: 'rgba(224,120,216,0.30)',
+      cap:     ()  => 'Ой, тут можно взять! Только не злись, это ради победы 💕',
+      multiCap:(n) => `Какая красивая комбинация на ${n} шашек ✨`,
+      center:  ()  => 'Центр доски — это сердечко игры. Береги его 💖',
+      defense: ()  => 'Задний ряд защищает тебя как мама-единорог 🌈',
+      idle:    ()  => 'Всё получится! Главное — верить в радугу ✨',
+    },
+    {
+      id: 'cat', name: 'Босс-Кот', emoji: '😼', color: '#a0a0a0', glow: 'rgba(160,160,160,0.30)',
+      cap:     ()  => 'мяу. бери. это слабак.',
+      multiCap:(n) => `комбо на ${n}? даже не вспотел.`,
+      center:  ()  => 'центр — мой коврик. никого не пускать.',
+      defense: ()  => 'тыл — моя миска. охраняй.',
+      idle:    ()  => 'я тебя не слежу. я просто рядом.',
+    },
+    {
+      id: 'wizard', name: 'Маг Шашкин', emoji: '🧙', color: '#9866d8', glow: 'rgba(152,102,216,0.30)',
+      cap:     ()  => 'Магическая возможность! Взятие материализуется на глазах ✨',
+      multiCap:(n) => `Я предвижу комбо! ${n} шашек растворяются в дыму!`,
+      center:  ()  => 'Центр — точка силы. Сконцентрируй там магию!',
+      defense: ()  => 'Без задней линии заклинания рассыплются. Береги её!',
+      idle:    ()  => 'Зри хрустальный шар: каждый ход — заклятие.',
+    },
+  ];
+
+  function getCoach(id) { return COACHES.find(c => c.id === id) || COACHES[0]; }
+  function randomCoach() { return COACHES[Math.floor(Math.random() * COACHES.length)]; }
+
+  // ============ Daily puzzles ============
+  // Each puzzle: 8 rows of 8 chars ('.', 'w', 'W', 'b', 'B'), side to move,
+  // solution from→to (we'll match user move start/end squares).
+  const PUZZLES = [
+    {
+      id:1, title:'Простое взятие', hint:'Чёрная шашка стоит на пути — забери её.',
+      board: ['........','........','........','........','...b....','....w...','........','........'],
+      side: WHITE, solution: { from:[5,4], to:[3,2] },
+    },
+    {
+      id:2, title:'Двойное взятие', hint:'Один ход — две шашки соперника.',
+      board: ['........','........','...b....','........','.....b..','......w.','........','........'],
+      side: WHITE, solution: { from:[5,6], to:[1,2] },
+    },
+    {
+      id:3, title:'Тройное взятие', hint:'Видишь цепочку? Бери все три!',
+      board: ['........','........','.....b..','........','...b....','........','.b......','w.......'],
+      side: WHITE, solution: { from:[7,0], to:[1,6] },
+    },
+    {
+      id:4, title:'Превратись в дамку', hint:'До 8-го ряда — всего один ход.',
+      board: ['........','..w.....','........','........','........','....w...','........','........'],
+      side: WHITE, solution: { from:[1,2], to:[0,3] },
+    },
+    {
+      id:5, title:'Дамка-летучка', hint:'Дамка летает по диагонали через всю доску.',
+      board: ['........','........','........','....b...','........','........','........','W.......'],
+      side: WHITE, solution: { from:[7,0], to:[2,5] },
+    },
+    {
+      id:6, title:'Превращение через взятие', hint:'Прыгай — и сразу становись дамкой.',
+      board: ['........','..b.....','.w......','........','........','........','........','........'],
+      side: WHITE, solution: { from:[2,1], to:[0,3] },
+    },
+    {
+      id:7, title:'Удар назад', hint:'По русским правилам шашка может бить и назад.',
+      board: ['........','........','........','....w...','.....b..','........','........','........'],
+      side: WHITE, solution: { from:[3,4], to:[5,6] },
+    },
+    {
+      id:8, title:'Финальный комбо', hint:'Дамка перерезает диагональ.',
+      board: ['........','........','........','.....b..','........','...b....','........','W.......'],
+      side: WHITE, solution: { from:[7,0], to:[2,5] },
+    },
+  ];
+
+  function parsePuzzleBoard(rows) {
+    const b = Array.from({length:8},()=>Array(8).fill(0));
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      const ch = rows[r][c];
+      if (ch === 'w') b[r][c] = W_MAN;
+      else if (ch === 'W') b[r][c] = W_KING;
+      else if (ch === 'b') b[r][c] = B_MAN;
+      else if (ch === 'B') b[r][c] = B_KING;
+    }
+    return b;
+  }
+  function todayDateStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function todayPuzzle() {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), 0, 0);
+    const day = Math.floor((today - start) / 86400000);
+    return PUZZLES[day % PUZZLES.length];
+  }
+  function isPuzzleSolvedToday() {
+    const date = todayDateStr();
+    return (state.profile.puzzleProgress.solved || []).includes(date);
+  }
+  function recordPuzzleSolved() {
+    const p = state.profile;
+    const today = todayDateStr();
+    if (p.puzzleProgress.solved.includes(today)) return false;
+    p.puzzleProgress.solved.push(today);
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const ystr = yesterday.getFullYear() + '-' + String(yesterday.getMonth()+1).padStart(2,'0') + '-' + String(yesterday.getDate()).padStart(2,'0');
+    p.puzzleProgress.streak = (p.puzzleProgress.lastSolvedDate === ystr) ? p.puzzleProgress.streak + 1 : 1;
+    p.puzzleProgress.bestStreak = Math.max(p.puzzleProgress.bestStreak || 0, p.puzzleProgress.streak);
+    p.puzzleProgress.lastSolvedDate = today;
+    p.boxes.silver = (p.boxes.silver || 0) + 1;
+    saveProfile();
+    return true;
+  }
+
+  // ============ Story / Campaign data ============
+  const WORLDS = [
+    {
+      id: 'forest',
+      name: 'Лесная деревня',
+      emoji: '🌲',
+      color: '#5aa86c',
+      color2: '#2a4a2c',
+      desc: 'Тихая деревня среди вековых деревьев',
+      levels: [
+        { name: 'Старейшина', avatar: '🧙',  aiLevel: 1, rating: 600 },
+        { name: 'Травник',    avatar: '🌿',  aiLevel: 1, rating: 700 },
+        { name: 'Лесник',     avatar: '🪓',  aiLevel: 2, rating: 850 },
+        { name: 'Охотник',    avatar: '🏹',  aiLevel: 2, rating: 950 },
+        { name: 'Друид',      avatar: '🦌',  aiLevel: 3, rating: 1100 },
+      ],
+      boss: { name: 'Леший', avatar: '👹', aiLevel: 3, rating: 1300 },
+    },
+    {
+      id: 'desert',
+      name: 'Пески пустыни',
+      emoji: '🏜️',
+      color: '#d8a14a',
+      color2: '#7a4818',
+      desc: 'Бескрайние барханы и древние легенды',
+      levels: [
+        { name: 'Караванщик',  avatar: '🐪',  aiLevel: 2, rating: 1150 },
+        { name: 'Кочевник',    avatar: '🤠',  aiLevel: 2, rating: 1250 },
+        { name: 'Жрец Солнца', avatar: '☀️',  aiLevel: 3, rating: 1350 },
+        { name: 'Заклинатель', avatar: '🧞',  aiLevel: 3, rating: 1450 },
+        { name: 'Страж оазиса',avatar: '🛡️',  aiLevel: 4, rating: 1550 },
+      ],
+      boss: { name: 'Песчаный король', avatar: '👑', aiLevel: 4, rating: 1700 },
+    },
+    {
+      id: 'ice',
+      name: 'Ледяной замок',
+      emoji: '🏰',
+      color: '#6aabe0',
+      color2: '#1c3a6a',
+      desc: 'Заснеженные шпили и ледяные коридоры',
+      levels: [
+        { name: 'Гвардеец',  avatar: '⚔️',  aiLevel: 3, rating: 1500 },
+        { name: 'Маг льда',  avatar: '❄️',  aiLevel: 3, rating: 1600 },
+        { name: 'Рыцарь',    avatar: '🛡️',  aiLevel: 4, rating: 1700 },
+        { name: 'Чародей',   avatar: '🧙‍♂️', aiLevel: 4, rating: 1800 },
+        { name: 'Капитан стражи', avatar: '⚜️', aiLevel: 4, rating: 1850 },
+      ],
+      boss: { name: 'Ледяная королева', avatar: '👸', aiLevel: 5, rating: 2000 },
+    },
+    {
+      id: 'cosmos',
+      name: 'Космическая цитадель',
+      emoji: '🌌',
+      color: '#9866d8',
+      color2: '#2a1858',
+      desc: 'Финальная битва среди звёзд',
+      levels: [
+        { name: 'Страж врат', avatar: '🤖',  aiLevel: 4, rating: 1950 },
+        { name: 'Меркурий',   avatar: '🪐',  aiLevel: 4, rating: 2050 },
+        { name: 'Венера',     avatar: '✨',  aiLevel: 5, rating: 2150 },
+        { name: 'Марс',       avatar: '🔴',  aiLevel: 5, rating: 2250 },
+        { name: 'Юпитер',     avatar: '⚡',  aiLevel: 5, rating: 2350 },
+      ],
+      boss: { name: 'Создатель', avatar: '👁️', aiLevel: 5, rating: 2500 },
+    },
+  ];
+
+  function getWorld(id) { return WORLDS.find(w => w.id === id); }
+  function nodePositions() {
+    // x%,y% positions for 5 regular nodes (zig-zag), boss separate
+    return [
+      { left:'10%', top:'62%' },
+      { left:'27%', top:'24%' },
+      { left:'44%', top:'62%' },
+      { left:'61%', top:'24%' },
+      { left:'77%', top:'62%' },
+    ];
+  }
+  function bossPosition() { return { left:'93%', top:'42%' }; }
+
+  function pickBoxForWin(game) {
+    if (game.mode === 'ai') {
+      const lvl = game.aiLevel || 1;
+      if (lvl <= 1) return 'cardboard';
+      if (lvl === 2) return Math.random() < 0.7 ? 'cardboard' : 'silver';
+      if (lvl === 3) return Math.random() < 0.4 ? 'cardboard' : 'silver';
+      if (lvl === 4) return Math.random() < 0.55 ? 'silver' : 'gold';
+      return Math.random() < 0.30 ? 'silver' : 'gold';
+    }
+    if (game.mode === 'online') return Math.random() < 0.45 ? 'silver' : 'gold';
+    if (game.mode === 'blitz')  return Math.random() < 0.75 ? 'silver' : 'gold';
+    return 'cardboard';
+  }
+
+  const FAKE_PLAYERS = [
+    { name: 'Айдар', city: 'Алматы', rating: 1820, avatar: '🦊' },
+    { name: 'Дарья', city: 'Москва', rating: 1795, avatar: '🦉' },
+    { name: 'Темирлан', city: 'Астана', rating: 1762, avatar: '🐺' },
+    { name: 'Камиля', city: 'Шымкент', rating: 1740, avatar: '🦄' },
+    { name: 'Нурлан', city: 'Алматы', rating: 1715, avatar: '🦁' },
+    { name: 'Анна', city: 'Санкт-Петербург', rating: 1690, avatar: '🐧' },
+    { name: 'Бекзат', city: 'Караганда', rating: 1670, avatar: '🐲' },
+    { name: 'Жанна', city: 'Алматы', rating: 1650, avatar: '🦝' },
+    { name: 'Алишер', city: 'Ташкент', rating: 1630, avatar: '🦅' },
+    { name: 'Мария', city: 'Минск', rating: 1610, avatar: '🐝' },
+    { name: 'Канат', city: 'Актобе', rating: 1590, avatar: '🐯' },
+    { name: 'Елена', city: 'Бишкек', rating: 1565, avatar: '🐼' },
+    { name: 'Руслан', city: 'Алматы', rating: 1540, avatar: '🐙' },
+    { name: 'София', city: 'Астана', rating: 1525, avatar: '🐸' },
+    { name: 'Дамир', city: 'Атырау', rating: 1510, avatar: '🦊' },
+    { name: 'Гульнара', city: 'Тараз', rating: 1490, avatar: '🦄' },
+    { name: 'Сергей', city: 'Павлодар', rating: 1475, avatar: '🐢' },
+    { name: 'Алия', city: 'Алматы', rating: 1460, avatar: '🐝' },
+    { name: 'Ермек', city: 'Костанай', rating: 1440, avatar: '🐺' },
+    { name: 'Ольга', city: 'Москва', rating: 1425, avatar: '🦉' },
+    { name: 'Арман', city: 'Алматы', rating: 1410, avatar: '🦁' },
+    { name: 'Виктория', city: 'Алматы', rating: 1395, avatar: '🦝' },
+    { name: 'Даурен', city: 'Шымкент', rating: 1380, avatar: '🐯' },
+    { name: 'Лейла', city: 'Астана', rating: 1365, avatar: '🐼' },
+    { name: 'Адиль', city: 'Алматы', rating: 1350, avatar: '🦊' },
+    { name: 'Ксения', city: 'Алматы', rating: 1330, avatar: '🐧' },
+    { name: 'Жасулан', city: 'Уральск', rating: 1315, avatar: '🐲' },
+    { name: 'Ирина', city: 'Тбилиси', rating: 1295, avatar: '🦄' },
+    { name: 'Бакыт', city: 'Алматы', rating: 1280, avatar: '🦅' },
+    { name: 'Анастасия', city: 'Алматы', rating: 1260, avatar: '🐝' },
+  ];
+
+  // ============ Storage ============
+  const Storage = {
+    get(key, def) {
+      try { const v = localStorage.getItem('damka.' + key); return v ? JSON.parse(v) : def; }
+      catch { return def; }
+    },
+    set(key, val) {
+      try { localStorage.setItem('damka.' + key, JSON.stringify(val)); } catch {}
+    }
+  };
+
+  // ============ State ============
+  const state = {
+    view: 'menu',        // 'onboarding'|'menu'|'game'|'analysis'
+    profile: null,
+    settings: null,
+    game: null,
+    aiThinking: false,
+    multiplayer: null,
+    modal: null,
+    lastAnalysis: null,
+  };
+
+  function defaultProfile() {
+    return {
+      nickname: '',
+      city: 'Алматы',
+      avatar: AVATARS[0],
+      stats: { wins: 0, losses: 0, draws: 0, rating: 1000, gamesByMode: {} },
+      isPro: false,
+      // Skin inventory: lists of owned skin ids per kind
+      inventory: { pieces: ['classic'], boards: ['wood'] },
+      // Currently equipped skin per kind
+      equipped:  { piece: 'classic', board: 'wood' },
+      // Unopened boxes count per type
+      boxes:     { cardboard: 0, silver: 0, gold: 0 },
+      // Story-mode progress: regular levels completed per world + defeated boss world ids
+      campaign:  { progress: { forest: 0, desert: 0, ice: 0, cosmos: 0 }, bosses: [] },
+      // Daily puzzles progress
+      puzzleProgress: { solved: [], streak: 0, bestStreak: 0, lastSolvedDate: null },
+      // Friends (peer IDs of online opponents)
+      friends: [],   // [{ name, avatar, city, peerId, lastSeen }]
+      // i18n
+      lang: 'ru',
+      theme: 'dark',
+      sound: true,
+      coachHints: true,
+      firstSeen: Date.now(),
+    };
+  }
+
+  function loadProfile() {
+    const p = Storage.get('profile', null);
+    if (!p) return defaultProfile();
+    // Migration: ensure new fields exist for old saves
+    if (!p.inventory) p.inventory = { pieces: ['classic'], boards: ['wood'] };
+    if (!p.inventory.pieces || !p.inventory.pieces.length) p.inventory.pieces = ['classic'];
+    if (!p.inventory.boards || !p.inventory.boards.length) p.inventory.boards = ['wood'];
+    if (!p.equipped) p.equipped = { piece: p.pieceSkin || 'classic', board: 'wood' };
+    if (!p.equipped.piece) p.equipped.piece = 'classic';
+    if (!p.equipped.board) p.equipped.board = 'wood';
+    if (!p.boxes) p.boxes = { cardboard: 0, silver: 0, gold: 0 };
+    if (!p.campaign) p.campaign = { progress: { forest: 0, desert: 0, ice: 0, cosmos: 0 }, bosses: [] };
+    if (!p.campaign.progress) p.campaign.progress = { forest: 0, desert: 0, ice: 0, cosmos: 0 };
+    if (!p.campaign.bosses) p.campaign.bosses = [];
+    if (!p.puzzleProgress) p.puzzleProgress = { solved: [], streak: 0, bestStreak: 0, lastSolvedDate: null };
+    if (!p.friends) p.friends = [];
+    if (!p.lang) p.lang = 'ru';
+    // Verify equipped items exist in catalog; fallback to starter
+    if (!getSkin('pieces', p.equipped.piece)) p.equipped.piece = 'classic';
+    if (!getSkin('boards', p.equipped.board)) p.equipped.board = 'wood';
+    return p;
+  }
+  function saveProfile() { Storage.set('profile', state.profile); }
+
+  function loadLeaderboardLocal() {
+    return Storage.get('lb', []);
+  }
+  function recordResult(result) {
+    // result: 'win'|'loss'|'draw'; updates profile stats and leaderboard entry
+    const p = state.profile;
+    if (result === 'win') {
+      p.stats.wins++;
+      p.stats.rating = Math.min(2400, p.stats.rating + 18);
+    } else if (result === 'loss') {
+      p.stats.losses++;
+      p.stats.rating = Math.max(400, p.stats.rating - 12);
+    } else {
+      p.stats.draws++;
+    }
+    saveProfile();
+    const lb = loadLeaderboardLocal();
+    const ix = lb.findIndex(e => e.id === 'me');
+    const entry = { id: 'me', name: p.nickname || 'Игрок', city: p.city, rating: p.stats.rating, avatar: p.avatar };
+    if (ix >= 0) lb[ix] = entry; else lb.push(entry);
+    Storage.set('lb', lb);
+  }
+
+  // ============ Game logic ============
+  function newBoard() {
+    const b = Array.from({length: 8}, () => Array(8).fill(0));
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 8; c++) {
+        if ((r + c) % 2 === 1) b[r][c] = B_MAN;
+      }
+    }
+    for (let r = 5; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if ((r + c) % 2 === 1) b[r][c] = W_MAN;
+      }
+    }
+    return b;
+  }
+
+  function cloneBoard(b) { return b.map(row => row.slice()); }
+  function inBounds(r, c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
+  function sgn(x) { return x > 0 ? 1 : x < 0 ? -1 : 0; }
+
+  function pieceAt(board, r, c) { return board[r][c]; }
+  function isKing(p) { return Math.abs(p) === 2; }
+  function isMan(p) { return Math.abs(p) === 1; }
+
+  // Generate capture sequences starting from (fr,fc). Russian rules:
+  // - Man can capture forward AND backward
+  // - King is flying: scans any distance along diagonal, jumps single enemy, lands on any empty square beyond
+  // - Multi-jump mandatory: must continue capturing if possible
+  // - Captured pieces stay on board until end of sequence (block paths, cannot be re-captured)
+  // - Promotion only at end of move sequence
+  function generateCapturesFrom(board, fr, fc) {
+    const piece = board[fr][fc];
+    if (piece === 0) return [];
+    const side = sgn(piece);
+    const startKing = isKing(piece);
+    const sequences = [];
+    const stepPath = [[fr, fc]];
+    const capPath = [];
+
+    function isCapturedAt(r, c) {
+      for (const p of capPath) if (p[0] === r && p[1] === c) return true;
+      return false;
+    }
+    function pathEmpty(r, c) {
+      if (r === fr && c === fc) return true; // piece left origin
+      return board[r][c] === 0;
+    }
+
+    // dfs carries currentlyKing flag — man can promote mid-sequence (Russian rule)
+    function dfs(r, c, currentlyKing) {
+      let extended = false;
+      for (const [dr, dc] of DIRS) {
+        if (currentlyKing) {
+          let nr = r + dr, nc = c + dc;
+          while (inBounds(nr, nc) && pathEmpty(nr, nc)) { nr += dr; nc += dc; }
+          if (!inBounds(nr, nc)) continue;
+          if (isCapturedAt(nr, nc)) continue;
+          if (sgn(board[nr][nc]) !== -side) continue;
+          const er = nr, ec = nc;
+          nr += dr; nc += dc;
+          while (inBounds(nr, nc) && pathEmpty(nr, nc)) {
+            stepPath.push([nr, nc]);
+            capPath.push([er, ec]);
+            extended = true;
+            dfs(nr, nc, true);
+            stepPath.pop();
+            capPath.pop();
+            nr += dr; nc += dc;
+          }
+        } else {
+          const er = r + dr, ec = c + dc;
+          const lr = r + 2*dr, lc = c + 2*dc;
+          if (!inBounds(lr, lc)) continue;
+          if (isCapturedAt(er, ec)) continue;
+          if (board[er][ec] === 0 || sgn(board[er][ec]) !== -side) continue;
+          if (!pathEmpty(lr, lc)) continue;
+          stepPath.push([lr, lc]);
+          capPath.push([er, ec]);
+          extended = true;
+          const becameKing = (side === WHITE && lr === 0) || (side === BLACK && lr === 7);
+          dfs(lr, lc, becameKing);
+          stepPath.pop();
+          capPath.pop();
+        }
+      }
+      if (!extended && capPath.length > 0) {
+        sequences.push({
+          steps: stepPath.map(s => [s[0], s[1]]),
+          captures: capPath.map(s => [s[0], s[1]]),
+          piece,
+        });
+      }
+    }
+
+    dfs(fr, fc, startKing);
+    return sequences;
+  }
+
+  function generateNonCapturesFrom(board, fr, fc) {
+    const piece = board[fr][fc];
+    if (piece === 0) return [];
+    const king = isKing(piece);
+    const side = sgn(piece);
+    const moves = [];
+    if (king) {
+      for (const [dr, dc] of DIRS) {
+        let nr = fr + dr, nc = fc + dc;
+        while (inBounds(nr, nc) && board[nr][nc] === 0) {
+          moves.push({ steps: [[fr,fc],[nr,nc]], captures: [], piece });
+          nr += dr; nc += dc;
+        }
+      }
+    } else {
+      const fwd = -side;
+      for (const dc of [-1, 1]) {
+        const nr = fr + fwd, nc = fc + dc;
+        if (inBounds(nr, nc) && board[nr][nc] === 0) {
+          moves.push({ steps: [[fr,fc],[nr,nc]], captures: [], piece });
+        }
+      }
+    }
+    return moves;
+  }
+
+  function legalMoves(board, side) {
+    const captures = [];
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      if (sgn(board[r][c]) === side) {
+        const seqs = generateCapturesFrom(board, r, c);
+        if (seqs.length) captures.push(...seqs);
+      }
+    }
+    if (captures.length) return captures;
+    const moves = [];
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      if (sgn(board[r][c]) === side) {
+        const ms = generateNonCapturesFrom(board, r, c);
+        if (ms.length) moves.push(...ms);
+      }
+    }
+    return moves;
+  }
+
+  function applyMove(board, move) {
+    const b = cloneBoard(board);
+    const [fr, fc] = move.steps[0];
+    const [tr, tc] = move.steps[move.steps.length - 1];
+    let piece = b[fr][fc];
+    b[fr][fc] = 0;
+    for (const [cr, cc] of move.captures) b[cr][cc] = 0;
+    // Promotion: any time the man's path touches the back rank
+    if (isMan(piece)) {
+      for (let i = 1; i < move.steps.length; i++) {
+        const sr = move.steps[i][0];
+        if ((piece > 0 && sr === 0) || (piece < 0 && sr === 7)) {
+          piece = piece > 0 ? W_KING : B_KING;
+          break;
+        }
+      }
+    }
+    b[tr][tc] = piece;
+    return b;
+  }
+
+  function countPieces(board, side) {
+    let c = 0;
+    for (let r = 0; r < 8; r++) for (let cc = 0; cc < 8; cc++)
+      if (sgn(board[r][cc]) === side) c++;
+    return c;
+  }
+
+  function checkGameStatus(board, sideToMove) {
+    // sideToMove is who is about to move.
+    // White loses if has no pieces or no legal moves; same for black.
+    const wPieces = countPieces(board, WHITE);
+    const bPieces = countPieces(board, BLACK);
+    if (wPieces === 0) return 'won-black';
+    if (bPieces === 0) return 'won-white';
+    const moves = legalMoves(board, sideToMove);
+    if (moves.length === 0) return sideToMove === WHITE ? 'won-black' : 'won-white';
+    return 'playing';
+  }
+
+  // ============ Notation ============
+  // PDN-like: a1..h8. White at the bottom (row 7 -> rank 1).
+  function sqName(r, c) {
+    const file = 'abcdefgh'[c];
+    const rank = 8 - r;
+    return file + rank;
+  }
+  function moveToNotation(move) {
+    const sep = move.captures.length ? ':' : '-';
+    const from = sqName(move.steps[0][0], move.steps[0][1]);
+    const to = sqName(move.steps[move.steps.length-1][0], move.steps[move.steps.length-1][1]);
+    if (move.captures.length === 0) return from + sep + to;
+    const path = move.steps.slice(1).map(s => sqName(s[0], s[1])).join(':');
+    return from + ':' + path;
+  }
+
+  // ============ AI ============
+  function evaluate(board) {
+    let score = 0;
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = board[r][c];
+        if (!p) continue;
+        const s = sgn(p);
+        let v = isKing(p) ? 320 : 100;
+        if (isMan(p)) {
+          // Advancement bonus
+          v += (s === WHITE ? (7 - r) : r) * 6;
+          // Back-rank holding bonus
+          if ((s === WHITE && r === 7) || (s === BLACK && r === 0)) v += 12;
+          // Wall column bonus (less exposed on a/h files)
+          if (c === 0 || c === 7) v += 4;
+        }
+        // Center bonus
+        if (c >= 2 && c <= 5 && r >= 2 && r <= 5) v += 4;
+        score += s * v;
+      }
+    }
+    return score;
+  }
+
+  // ----- Zobrist hashing for transposition table -----
+  // Use BigInt to keep the hash deterministic. 5 piece codes × 64 squares.
+  const Z_RNG = (() => {
+    let s = 1234567n;
+    return () => {
+      s = (s * 6364136223846793005n + 1442695040888963407n) & 0xFFFFFFFFFFFFFFFFn;
+      return s;
+    };
+  })();
+  const Z_PIECE = (() => {
+    // index by (piece+2) and (r*8+c)
+    const arr = [];
+    for (let p = 0; p < 5; p++) {
+      const row = [];
+      for (let i = 0; i < 64; i++) row.push(Z_RNG());
+      arr.push(row);
+    }
+    return arr;
+  })();
+  const Z_SIDE = Z_RNG();
+  function zobristHash(board, side) {
+    let h = 0n;
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      const p = board[r][c];
+      if (p !== 0) h ^= Z_PIECE[p + 2][r * 8 + c];
+    }
+    if (side === BLACK) h ^= Z_SIDE;
+    return h;
+  }
+
+  // Cache: hash -> { depth, score, flag, bestMoveKey }
+  // flag: 0 exact, 1 lower bound (alpha), 2 upper bound (beta)
+  let TT = new Map();
+  const TT_MAX = 200000;
+  function ttPut(h, depth, score, flag, bestKey) {
+    if (TT.size > TT_MAX) TT.clear();
+    TT.set(h.toString(), { depth, score, flag, bestKey });
+  }
+  function ttGet(h) { return TT.get(h.toString()); }
+  function moveKey(m) {
+    return m.steps[0][0] + ',' + m.steps[0][1] + '>' +
+           m.steps[m.steps.length-1][0] + ',' + m.steps[m.steps.length-1][1];
+  }
+
+  function orderMoves(moves, preferredKey) {
+    return moves.slice().sort((a, b) => {
+      if (preferredKey) {
+        if (moveKey(a) === preferredKey) return -1;
+        if (moveKey(b) === preferredKey) return 1;
+      }
+      return b.captures.length - a.captures.length;
+    });
+  }
+
+  function minimax(board, depth, alpha, beta, side, deadline) {
+    if (deadline && performance.now() > deadline) return { score: evaluate(board), move: null, timeout: true };
+    const origAlpha = alpha;
+    const h = zobristHash(board, side);
+    const hit = ttGet(h);
+    let ttBestKey = null;
+    if (hit && hit.depth >= depth) {
+      if (hit.flag === 0) return { score: hit.score, move: null, fromTT: true };
+      if (hit.flag === 1 && hit.score >= beta) return { score: hit.score, move: null, fromTT: true };
+      if (hit.flag === 2 && hit.score <= alpha) return { score: hit.score, move: null, fromTT: true };
+    }
+    if (hit) ttBestKey = hit.bestKey;
+
+    const moves = legalMoves(board, side);
+    if (moves.length === 0) {
+      return { score: side === WHITE ? -100000 + (8 - depth) : 100000 - (8 - depth), move: null };
+    }
+    if (depth === 0) return { score: evaluate(board), move: null };
+    const ordered = orderMoves(moves, ttBestKey);
+    let bestMove = ordered[0];
+    let bestScore;
+    if (side === WHITE) {
+      bestScore = -Infinity;
+      for (const m of ordered) {
+        const next = applyMove(board, m);
+        const res = minimax(next, depth - 1, alpha, beta, BLACK, deadline);
+        if (res.score > bestScore) { bestScore = res.score; bestMove = m; }
+        alpha = Math.max(alpha, bestScore);
+        if (beta <= alpha) break;
+      }
+    } else {
+      bestScore = Infinity;
+      for (const m of ordered) {
+        const next = applyMove(board, m);
+        const res = minimax(next, depth - 1, alpha, beta, WHITE, deadline);
+        if (res.score < bestScore) { bestScore = res.score; bestMove = m; }
+        beta = Math.min(beta, bestScore);
+        if (beta <= alpha) break;
+      }
+    }
+    // Store
+    let flag = 0;
+    if (side === WHITE) {
+      if (bestScore <= origAlpha) flag = 2;
+      else if (bestScore >= beta) flag = 1;
+    } else {
+      if (bestScore >= beta) flag = 1;
+      else if (bestScore <= origAlpha) flag = 2;
+    }
+    ttPut(h, depth, bestScore, flag, bestMove ? moveKey(bestMove) : null);
+    return { score: bestScore, move: bestMove };
+  }
+
+  // Iterative deepening: search depth 1, 2, ... up to target or until time runs out
+  function iterativeDeepening(board, side, maxDepth, deadline) {
+    let best = null;
+    for (let d = 1; d <= maxDepth; d++) {
+      const r = minimax(board, d, -Infinity, Infinity, side, deadline);
+      if (deadline && performance.now() > deadline) {
+        if (best) return best;
+        return r;
+      }
+      if (r.move) best = r;
+    }
+    return best;
+  }
+
+  function pickAIMove(board, side, level) {
+    const cfg = AI_LEVELS.find(l => l.id === level) || AI_LEVELS[2];
+    const moves = legalMoves(board, side);
+    if (moves.length === 0) return null;
+    // For easiest: pick semi-randomly to keep things winnable
+    if (Math.random() < cfg.rand) {
+      return moves[Math.floor(Math.random() * moves.length)];
+    }
+    const deadline = performance.now() + 1800; // 1.8s time cap
+    TT.clear(); // clear between turns; entries from older positions are stale anyway
+    const res = iterativeDeepening(board, side, cfg.depth, deadline);
+    return (res && res.move) || moves[0];
+  }
+
+  // ============ AI Coach analysis ============
+  function analyzeHistory(history, playerSide) {
+    // history: array of {board (before), move, side}
+    const annotations = [];
+    let blunders = 0, mistakes = 0, inaccuracies = 0, best = 0;
+    let cumLossCp = 0, playerMoves = 0;
+
+    for (let i = 0; i < history.length; i++) {
+      const h = history[i];
+      // Engine's best for this position
+      const res = minimax(h.board, 4, -Infinity, Infinity, h.side, performance.now() + 220);
+      // Score from h.side's perspective: positive = good for h.side
+      const bestForSide = (h.side === WHITE ? res.score : -res.score);
+      const afterActual = applyMove(h.board, h.move);
+      // Now opponent to move; evaluate position from opponent perspective, flip sign
+      const actualRes = minimax(afterActual, 3, -Infinity, Infinity, -h.side, performance.now() + 150);
+      const actualForSide = (h.side === WHITE ? actualRes.score : -actualRes.score);
+      const delta = bestForSide - actualForSide; // how much worse than best
+      let label;
+      if (delta <= 15) label = 'best';
+      else if (delta <= 60) label = 'good';
+      else if (delta <= 150) label = 'inaccurate';
+      else if (delta <= 350) label = 'mistake';
+      else label = 'blunder';
+
+      const a = {
+        index: i,
+        move: h.move,
+        side: h.side,
+        bestMove: res.move,
+        bestScore: bestForSide,
+        actualScore: actualForSide,
+        delta,
+        label,
+        notation: moveToNotation(h.move),
+        bestNotation: res.move ? moveToNotation(res.move) : '',
+        comment: '',
+      };
+      annotations.push(a);
+
+      if (h.side === playerSide) {
+        playerMoves++;
+        if (label === 'best') best++;
+        else if (label === 'inaccurate') inaccuracies++;
+        else if (label === 'mistake') mistakes++;
+        else if (label === 'blunder') blunders++;
+        cumLossCp += Math.max(0, delta);
+      }
+    }
+
+    // Add commentary
+    for (const a of annotations) {
+      if (a.label === 'best') {
+        a.comment = 'Лучший ход в позиции. Хорошо!';
+      } else if (a.label === 'good') {
+        a.comment = 'Хороший ход — близко к оптимуму.';
+      } else if (a.label === 'inaccurate') {
+        a.comment = `Неточность. Сильнее было ${a.bestNotation}.`;
+      } else if (a.label === 'mistake') {
+        a.comment = `Ошибка: вы упустили преимущество. Лучшим был ${a.bestNotation}.`;
+        if (a.bestMove && a.bestMove.captures.length > a.move.captures.length)
+          a.comment += ' Здесь было взятие.';
+      } else if (a.label === 'blunder') {
+        a.comment = `Грубая ошибка! Этот ход проигрывает позицию. Сильнее ${a.bestNotation}.`;
+        if (a.bestMove && a.bestMove.captures.length > a.move.captures.length)
+          a.comment += ` Была возможность взятия ${a.bestMove.captures.length} шашки.`;
+      }
+    }
+
+    const accuracy = playerMoves === 0 ? 100 : Math.max(0, Math.min(100, 100 - cumLossCp / playerMoves / 4));
+
+    return {
+      annotations,
+      summary: {
+        best, inaccuracies, mistakes, blunders,
+        playerMoves,
+        accuracy: Math.round(accuracy),
+      },
+    };
+  }
+
+  // ============ Sound (simple Web Audio synth) ============
+  let audioCtx = null;
+  function getAudio() {
+    if (!state.profile?.sound) return null;
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch { return null; }
+    }
+    return audioCtx;
+  }
+  function blip(freq, dur, type = 'sine', vol = 0.06) {
+    const ctx = getAudio(); if (!ctx) return;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.value = 0;
+    g.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + dur);
+  }
+  const Sound = {
+    select: () => blip(620, 0.05, 'square', 0.04),
+    move:   () => blip(440, 0.12, 'sine', 0.05),
+    capture:() => { blip(360, 0.06, 'square', 0.06); setTimeout(()=>blip(280,0.10,'square',0.06),60); },
+    king:   () => { blip(800,0.10,'triangle',0.07); setTimeout(()=>blip(1200,0.14,'triangle',0.07),80); },
+    win:    () => { blip(660,0.12,'triangle',0.08); setTimeout(()=>blip(880,0.14,'triangle',0.08),120); setTimeout(()=>blip(1175,0.20,'triangle',0.08),260); },
+    lose:   () => { blip(330,0.16,'sine',0.06); setTimeout(()=>blip(220,0.30,'sine',0.06),140); },
+    tick:   () => blip(900,0.02,'square',0.025),
+  };
+
+  // ============ Game state factory ============
+  function newGame(opts) {
+    return {
+      mode: opts.mode,                     // 'ai'|'local'|'online'|'blitz'
+      aiLevel: opts.aiLevel || 3,
+      playerSide: opts.playerSide || WHITE,
+      board: newBoard(),
+      sideToMove: WHITE,
+      moveHistory: [],                     // {board (before), move, side}
+      selected: null,                      // [r,c]
+      avail: [],                           // legal moves from selected
+      mustContinueFrom: null,
+      status: 'playing',
+      blitz: opts.blitz || false,
+      timers: opts.blitz ? { white: 180000, black: 180000, lastTick: null } : null,
+      timerHandle: null,
+      names: opts.names || { white: state.profile?.nickname || 'Вы', black: 'Соперник' },
+      avatars: opts.avatars || { white: state.profile?.avatar || '🦊', black: '🤖' },
+      started: Date.now(),
+      online: opts.online || null,         // {role:'host'|'guest'}
+      coachId: randomCoach().id,           // random in-game hint character
+    };
+  }
+
+  // ============ View rendering ============
+  const root = document.getElementById('app');
+  const modalRoot = document.getElementById('modal-root');
+  const toastRoot = document.getElementById('toast-root');
+
+  function showToast(msg) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    toastRoot.appendChild(el);
+    setTimeout(() => el.remove(), 2800);
+  }
+
+  function showModal(html, opts={}) {
+    closeModal();
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" style="position:relative">${html}</div>`;
+    bg.addEventListener('click', (e) => { if (e.target === bg && opts.dismissable !== false) closeModal(); });
+    modalRoot.appendChild(bg);
+    return bg;
+  }
+  function closeModal() { modalRoot.innerHTML = ''; }
+  window.closeModal = closeModal;
+
+  function applyTheme() {
+    document.documentElement.setAttribute('data-theme', state.profile.theme || 'dark');
+  }
+
+  // ===== Top bar =====
+  function totalBoxes() {
+    const b = state.profile.boxes || {};
+    return (b.cardboard||0) + (b.silver||0) + (b.gold||0);
+  }
+  function renderTopbar() {
+    const p = state.profile;
+    const boxCount = totalBoxes();
+    const invBadge = boxCount > 0 ? `<span style="position:absolute; top:-4px; right:-4px; background:var(--bad); color:#fff; min-width:18px; height:18px; padding:0 5px; border-radius:99px; font-size:11px; font-weight:800; display:grid; place-items:center;">${boxCount}</span>` : '';
+    return `
+      <div class="topbar">
+        <div class="brand" onclick="App.go('menu')">
+          <div class="brand-logo">Д</div>
+          <div>
+            <div class="brand-title">Дамка</div>
+            <div class="brand-sub">Шашки с AI-тренером</div>
+          </div>
+        </div>
+        <div class="topbar-right">
+          ${p.isPro ? `<div class="pro-badge">PRO</div>` : ''}
+          ${state._canInstall ? `<button class="iconbtn" title="${t('pwa_install')}" onclick="promptInstall()">⬇</button>` : ''}
+          <button class="iconbtn" title="Инвентарь" onclick="App.openInventory()" style="position:relative;">🎒${invBadge}</button>
+          <button class="iconbtn" title="Тема" onclick="App.toggleTheme()">${p.theme === 'dark' ? '☀️' : '🌙'}</button>
+          <button class="iconbtn" title="Профиль" onclick="App.showProfile()">${p.avatar}</button>
+        </div>
+      </div>`;
+  }
+
+  // ===== Onboarding =====
+  function renderOnboarding() {
+    root.innerHTML = `
+      <div class="onb">
+        <div class="onb-card">
+          <div class="onb-logo">Д</div>
+          <h1>Добро пожаловать в Дамку</h1>
+          <p class="sub">Шашки нового уровня: AI-тренер, мультиплеер по ссылке, блиц-дуэли и городской лидерборд.</p>
+          <div class="field">
+            <label>Имя или ник</label>
+            <input id="onb-nick" placeholder="Аидар" maxlength="22" />
+          </div>
+          <div class="field">
+            <label>Город</label>
+            <select id="onb-city">
+              ${CITIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label>Аватар</label>
+            <div class="avatar-picker" id="onb-avatars">
+              ${AVATARS.slice(0,12).map((a,i) => `<div class="avatar-opt ${i===0?'sel':''}" data-av="${a}">${a}</div>`).join('')}
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-primary btn-lg" onclick="App.finishOnboarding()">Начать играть →</button>
+          </div>
+        </div>
+      </div>
+    `;
+    // Avatar picker
+    root.querySelectorAll('.avatar-opt').forEach(el => {
+      el.addEventListener('click', () => {
+        root.querySelectorAll('.avatar-opt').forEach(x => x.classList.remove('sel'));
+        el.classList.add('sel');
+      });
+    });
+  }
+
+  // ===== Menu =====
+  function renderMenu() {
+    const p = state.profile;
+    const winrate = (p.stats.wins + p.stats.losses + p.stats.draws) === 0
+      ? 0 : Math.round(100 * p.stats.wins / (p.stats.wins + p.stats.losses + p.stats.draws));
+    const helloName = p.nickname || 'игрок';
+
+    const camp = state.profile.campaign;
+    const worldsDone = camp.bosses.length;
+    const currentWorld = WORLDS.find(w => !camp.bosses.includes(w.id)) || WORLDS[WORLDS.length-1];
+    const curProg = camp.progress[currentWorld.id] || 0;
+    const modes = [
+      {
+        emoji: '⚔️',
+        title: 'Сюжет',
+        desc: `Пройди 4 мира с растущей сложностью. ${worldsDone === 0 && curProg === 0 ? 'Начни приключение!' : `Текущий мир: ${currentWorld.emoji} ${currentWorld.name} (${curProg}/${currentWorld.levels.length})`}`,
+        cta: 'Карта мира →',
+        action: "App.go('campaign')",
+        featured: true,
+        tag: worldsDone === 0 && curProg === 0 ? '<span class="mode-tag new">New</span>' : '',
+      },
+      {
+        emoji: '🤖',
+        title: 'Против ИИ',
+        desc: '5 уровней сложности от Новичка до Мастера. Подсказки, отмена хода, разбор партии.',
+        cta: 'Играть →',
+        action: "App.openAIPicker()",
+      },
+      {
+        emoji: '🔗',
+        title: 'С другом по ссылке',
+        desc: 'Реальный мультиплеер через WebRTC. Создайте комнату и отправьте ссылку другу.',
+        cta: 'Создать комнату →',
+        action: "App.openMultiplayerHost()",
+        tag: '<span class="mode-tag new">Live</span>',
+      },
+      {
+        emoji: '⚡',
+        title: 'Блиц 3 минуты',
+        desc: 'Быстрые шашечные дуэли с таймером. Каждый ход на счету — тренируется скорость мысли.',
+        cta: 'Дуэль →',
+        action: "App.openBlitz()",
+        tag: '<span class="mode-tag hot">Hot</span>',
+      },
+      {
+        emoji: '👥',
+        title: 'Вдвоём за устройством',
+        desc: 'Классическая игра на одной доске. Удобно с другом за одним столом или телефоном.',
+        cta: 'Играть →',
+        action: "App.startLocal()",
+      },
+      {
+        emoji: '🎯',
+        title: t('mode_puzzles'),
+        desc: isPuzzleSolvedToday()
+          ? `Сегодня решено ✓ Серия: ${state.profile.puzzleProgress.streak} дн.`
+          : `Найди лучший ход. Награда — серебряный кейс. Серия: ${state.profile.puzzleProgress.streak || 0} дн.`,
+        cta: 'Открыть →',
+        action: "App.openPuzzle()",
+        tag: isPuzzleSolvedToday() ? '<span class="mode-tag new">✓</span>' : '<span class="mode-tag hot">DAILY</span>',
+      },
+      {
+        emoji: '🏆',
+        title: t('mode_tournament'),
+        desc: 'Локальный турнир на 4 игроков. Полуфиналы и финал — все на одном устройстве.',
+        cta: 'Создать →',
+        action: "App.openTournament()",
+      },
+      {
+        emoji: '👥',
+        title: t('mode_friends'),
+        desc: `Список друзей с PeerID для быстрых приглашений. У вас: ${state.profile.friends.length} друзей.`,
+        cta: 'Открыть →',
+        action: "App.openFriends()",
+      },
+      {
+        emoji: '🎒',
+        title: 'Инвентарь',
+        desc: `Скины фигур и досок. ${totalBoxes() > 0 ? `<strong style="color:var(--accent)">У вас ${totalBoxes()} нераспакованных коробок!</strong>` : 'Открывайте боксы за победы — выпадают скины разной редкости.'}`,
+        cta: 'Открыть →',
+        action: "App.openInventory()",
+        tag: totalBoxes() > 0 ? `<span class="mode-tag hot">+${totalBoxes()}</span>` : '',
+      },
+      {
+        emoji: '🏆',
+        title: 'Лидерборд',
+        desc: 'Топ игроков по вашему городу и глобально. Поднимайтесь в рейтинге, побеждая.',
+        cta: 'Открыть →',
+        action: "App.showLeaderboard()",
+      },
+      {
+        emoji: '✨',
+        title: 'Дамка Pro',
+        desc: 'Эксклюзивные скины фигур, расширенный AI-тренер, нестандартные темы доски.',
+        cta: p.isPro ? 'Управление →' : 'Активировать →',
+        action: "App.showPro()",
+        tag: '<span class="mode-tag pro">PRO</span>',
+      },
+    ];
+
+    root.innerHTML = `
+      ${renderTopbar()}
+      <div class="menu-hero">
+        <h2>Привет, <span class="accent">${escapeHTML(helloName)}</span></h2>
+        <p>Выберите режим. Все партии анализирует AI Coach — после игры покажет ваши ошибки и сильные ходы.</p>
+      </div>
+      <div class="modes-grid">
+        ${modes.map(m => `
+          <button class="mode-card ${m.featured ? 'featured' : ''}" onclick="${m.action}">
+            <div>
+              <div class="mode-emoji">${m.emoji}</div>
+              <div class="mode-title">${m.title} ${m.tag || ''}</div>
+              <div class="mode-desc">${m.desc}</div>
+            </div>
+            <div class="mode-cta">${m.cta}</div>
+          </button>
+        `).join('')}
+      </div>
+      <div class="stats-strip">
+        <div class="stat-card"><div class="stat-val">${p.stats.rating}</div><div class="stat-label">Рейтинг</div></div>
+        <div class="stat-card"><div class="stat-val">${p.stats.wins}</div><div class="stat-label">Побед</div></div>
+        <div class="stat-card"><div class="stat-val">${p.stats.losses + p.stats.draws}</div><div class="stat-label">Поражений / ничьих</div></div>
+        <div class="stat-card"><div class="stat-val">${winrate}%</div><div class="stat-label">Винрейт</div></div>
+      </div>
+    `;
+  }
+
+  // ===== Story / Campaign screen =====
+  function renderCampaign() {
+    const camp = state.profile.campaign;
+    root.innerHTML = `
+      ${renderTopbar()}
+      <div class="camp-header">
+        <button class="btn btn-ghost btn-sm" onclick="App.go('menu')">← Меню</button>
+        <h2>⚔️ Сюжет</h2>
+        <div class="grow"></div>
+        <div class="muted" style="font-size:13px;">Миров пройдено: ${camp.bosses.length} / ${WORLDS.length}</div>
+      </div>
+      <p class="muted" style="margin-bottom:18px;">Пройди 4 мира. В каждом — 5 уровней и финальный босс. Чем дальше — тем сильнее соперники. За победу над боссом — золотая коробка.</p>
+      <div class="worlds-list">
+        ${WORLDS.map((w, wi) => renderWorld(w, wi, camp)).join('')}
+      </div>
+    `;
+  }
+
+  function renderWorld(world, wi, camp) {
+    const prevDefeated = wi === 0 ? true : camp.bosses.includes(WORLDS[wi-1].id);
+    const unlocked = prevDefeated;
+    const progress = camp.progress[world.id] || 0;
+    const bossDefeated = camp.bosses.includes(world.id);
+    const positions = nodePositions();
+    const bp = bossPosition();
+
+    if (!unlocked) {
+      return `
+        <div class="world-card locked" style="--world-color:${world.color}; --world-color-2:${world.color2};">
+          <div class="world-head">
+            <div class="emoji">${world.emoji}</div>
+            <div class="grow">
+              <div class="title">${world.name} 🔒</div>
+              <div class="desc">${world.desc}</div>
+            </div>
+          </div>
+          <div class="world-locked-cta">
+            Победите босса предыдущего мира, чтобы открыть эту локацию
+          </div>
+        </div>`;
+    }
+
+    const nodes = world.levels.map((l, li) => {
+      const locked = li > progress;
+      const completed = li < progress;
+      const cls = locked ? 'locked' : completed ? 'completed' : 'available';
+      const pos = positions[li];
+      const onclick = !locked ? `onclick="App.startCampaignLevel('${world.id}', ${li})"` : '';
+      const icon = locked ? '🔒' : l.avatar;
+      return `
+        <div class="map-node ${cls}" style="left:${pos.left}; top:${pos.top};" ${onclick}>
+          <div class="circle">${icon}</div>
+          <div class="name">${escapeHTML(l.name)}</div>
+          <div class="rating">${l.rating}</div>
+        </div>`;
+    }).join('');
+
+    const bossLocked = progress < world.levels.length;
+    const bossCls = bossLocked ? 'locked' : bossDefeated ? 'completed' : 'available';
+    const bossClick = !bossLocked ? `onclick="App.startCampaignBoss('${world.id}')"` : '';
+    const bossNode = `
+      <div class="map-node boss ${bossCls}" style="left:${bp.left}; top:${bp.top};" ${bossClick}>
+        <div class="circle">${bossLocked ? '🔒' : world.boss.avatar}</div>
+        <div class="name">${escapeHTML(world.boss.name)}</div>
+        <div class="rating">${world.boss.rating}</div>
+      </div>`;
+
+    return `
+      <div class="world-card" style="--world-color:${world.color}; --world-color-2:${world.color2};">
+        <div class="world-head">
+          <div class="emoji">${world.emoji}</div>
+          <div class="grow">
+            <div class="title">${world.name}</div>
+            <div class="desc">${world.desc}</div>
+          </div>
+          <div class="progress">${progress}/${world.levels.length}${bossDefeated ? ' ✓' : ''}</div>
+        </div>
+        <div class="world-map">
+          <svg class="map-bg" viewBox="0 0 600 280" preserveAspectRatio="none">
+            <path d="M 60 175 Q 130 30 250 175 T 460 175 T 580 130" fill="none" stroke="rgba(255,255,255,0.30)" stroke-width="3" stroke-dasharray="7 7"/>
+          </svg>
+          ${nodes}
+          ${bossNode}
+        </div>
+      </div>`;
+  }
+
+  // ===== Game screen =====
+  function renderGame() {
+    const g = state.game;
+    if (!g) { renderMenu(); return; }
+    const me = state.profile;
+    const showCoachHint = me.coachHints && !state.aiThinking && g.status === 'playing'
+                          && (g.mode === 'ai' && g.sideToMove === g.playerSide || g.mode === 'local' || g.mode === 'blitz' || g.mode === 'online');
+    root.innerHTML = `
+      ${renderTopbar()}
+      <div class="game-layout">
+        <div class="game-main">
+          ${renderPlayerStrip(g, 'top')}
+          <div class="board-wrap"><div class="board" id="board"></div></div>
+          ${renderPlayerStrip(g, 'bottom')}
+        </div>
+        <div class="sidebar">
+          ${renderControls(g)}
+          ${renderMovesPanel(g)}
+          ${showCoachHint ? renderInlineCoach(g) : ''}
+        </div>
+      </div>
+    `;
+    renderBoardCells();
+  }
+
+  function renderPlayerStrip(g, pos) {
+    // For non-online: black is top, white is bottom (player perspective)
+    // For online host plays white at bottom; guest plays black at bottom (flipped).
+    const flipped = isFlipped(g);
+    const topSide  = flipped ? WHITE : BLACK;
+    const botSide  = flipped ? BLACK : WHITE;
+    const side = pos === 'top' ? topSide : botSide;
+    const name = side === WHITE ? g.names.white : g.names.black;
+    const av   = side === WHITE ? g.avatars.white : g.avatars.black;
+    const captures = countPieces(g.board, -side); // opponents lost = how many we captured = 12 - opp count
+    const ours = countPieces(g.board, side);
+    const lost = 12 - ours;
+    const active = g.sideToMove === side && g.status === 'playing';
+    const time = g.blitz ? formatTime(side === WHITE ? g.timers.white : g.timers.black) : null;
+    const low = time && (side === WHITE ? g.timers.white : g.timers.black) < 30000;
+    return `
+      <div class="player-strip ${active ? 'active' : ''}">
+        <div class="player-info">
+          <div class="player-avatar">${av}</div>
+          <div>
+            <div class="player-name">${escapeHTML(name)}</div>
+            <div class="player-meta">${side === WHITE ? 'Белые' : 'Чёрные'} • Потеряно ${lost}/12</div>
+          </div>
+        </div>
+        ${time !== null ? `<div class="player-clock ${low ? 'low' : ''}">${time}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function isFlipped(g) {
+    // Flip board so the human's pieces are at the bottom
+    // Default: white at bottom (rows 5-7). If player plays black against AI / online, flip.
+    if (g.mode === 'ai' && g.playerSide === BLACK) return true;
+    if (g.mode === 'online' && g.playerSide === BLACK) return true;
+    return false;
+  }
+
+  function renderControls(g) {
+    const canUndo = g.moveHistory.length > 0 && g.mode !== 'online' && g.status === 'playing';
+    return `
+      <div class="panel">
+        <h3>Партия</h3>
+        <div class="ctrls">
+          <button class="btn btn-sm" onclick="App.confirmExit()">⏎ Меню</button>
+          <button class="btn btn-sm" onclick="App.requestUndo()" ${canUndo ? '' : 'disabled'}>↶ Отмена</button>
+          <button class="btn btn-sm" onclick="App.toggleHints()">${state.profile.coachHints ? '💡 Подсказки' : '🔕 Подсказки'}</button>
+          <button class="btn btn-sm" onclick="App.toggleSound()">${state.profile.sound ? '🔊' : '🔇'} Звук</button>
+          ${g.mode === 'online' && state.multiplayer ? `<button class="btn btn-sm" onclick="App.openShareLink('${state.multiplayer.roomId || ''}')">🔗 Пригласить</button>` : ''}
+          ${g.mode === 'online' ? `<button class="btn btn-sm" onclick="App.openChat()">💬 Чат</button>` : ''}
+          ${g.mode === 'online' && state.multiplayer?.opponent ? `<button class="btn btn-sm" onclick="App._addOpponentToFriends()">＋ В друзья</button>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderMovesPanel(g) {
+    const turns = [];
+    for (let i = 0; i < g.moveHistory.length; i += 2) {
+      const a = g.moveHistory[i];
+      const b = g.moveHistory[i+1];
+      turns.push({num: i/2 + 1, w: a, b: b});
+    }
+    const isLast = (idx) => idx === g.moveHistory.length - 1;
+    return `
+      <div class="panel">
+        <h3>Ходы ${g.moveHistory.length ? `(${g.moveHistory.length})` : ''}</h3>
+        <div class="moves-list">
+          ${turns.length === 0 ? `<div class="muted" style="grid-column:1/-1; font-size:13px;">Партия только начинается…</div>` : ''}
+          ${turns.map(t => `
+            <div class="turn-num">${t.num}.</div>
+            <div class="mv ${t.w && isLast(g.moveHistory.indexOf(t.w)) ? 'cur' : ''}">${t.w ? moveToNotation(t.w.move) : ''}</div>
+            <div class="mv ${t.b && isLast(g.moveHistory.indexOf(t.b)) ? 'cur' : ''}">${t.b ? moveToNotation(t.b.move) : ''}</div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderInlineCoach(g) {
+    const moves = legalMoves(g.board, g.sideToMove);
+    if (moves.length === 0) return '';
+    const coach = getCoach(g.coachId);
+    const anyCap = moves.some(m => m.captures.length > 0);
+    let text;
+    if (anyCap) {
+      const max = moves.reduce((a,m) => Math.max(a, m.captures.length), 0);
+      const count = moves.filter(m => m.captures.length).length;
+      text = max > 1 ? coach.multiCap(max) : coach.cap(count);
+    } else {
+      // Pick advisory: center vs back-rank vs idle, by ply
+      const ply = g.moveHistory.length;
+      const hasCenterMove = moves.some(m => {
+        const t = m.steps[m.steps.length - 1];
+        return t[0] >= 3 && t[0] <= 4 && t[1] >= 2 && t[1] <= 5;
+      });
+      if (hasCenterMove && ply < 16) text = coach.center();
+      else if (ply < 8)              text = coach.defense();
+      else                            text = coach.idle();
+    }
+    return `
+      <div class="coach-bubble" style="--char-color:${coach.color}; --char-glow:${coach.glow};">
+        <div class="coach-avatar">${coach.emoji}</div>
+        <div class="coach-body">
+          <div class="coach-name">
+            <span>${escapeHTML(coach.name)}</span>
+            <span class="swap" title="Другой тренер" onclick="App.shuffleCoach()">↻ сменить</span>
+          </div>
+          <div class="coach-text">${escapeHTML(text)}</div>
+        </div>
+      </div>`;
+  }
+
+  function applyBoardSkin() {
+    const wrap = document.querySelector('.board-wrap');
+    if (!wrap) return;
+    const skin = getSkin('boards', state.profile.equipped.board);
+    wrap.style.setProperty('--board-light', skin.light);
+    wrap.style.setProperty('--board-dark', skin.dark);
+    wrap.style.setProperty('--board-light-2', skin.light2 || skin.light);
+    wrap.style.setProperty('--board-dark-2', skin.frame);
+  }
+
+  function renderBoardCells() {
+    const g = state.game;
+    const board = document.getElementById('board');
+    if (!board) return;
+    const flipped = isFlipped(g);
+    board.className = 'board';
+    board.innerHTML = '';
+    applyBoardSkin();
+    const pieceSkin = getSkin('pieces', state.profile.equipped.piece);
+    const sel = g.selected;
+    const possibleTargets = new Set(); // "r,c"
+    const captureTargets = new Set();
+    for (const m of g.avail) {
+      const t = m.steps[m.steps.length - 1];
+      const key = t[0] + ',' + t[1];
+      if (m.captures.length) captureTargets.add(key);
+      else possibleTargets.add(key);
+    }
+    const mustHL = new Set();
+    if (state.profile.coachHints && !sel && g.status === 'playing') {
+      // Highlight pieces that MUST move (have available captures)
+      const myMoves = legalMoves(g.board, g.sideToMove);
+      const anyCap = myMoves.some(m => m.captures.length > 0);
+      if (anyCap) {
+        for (const m of myMoves) if (m.captures.length) mustHL.add(m.steps[0][0] + ',' + m.steps[0][1]);
+      }
+    }
+    // Last move highlight
+    const last = g.moveHistory[g.moveHistory.length - 1];
+    const lastSet = new Set();
+    if (last) {
+      lastSet.add(last.move.steps[0][0] + ',' + last.move.steps[0][1]);
+      const t = last.move.steps[last.move.steps.length - 1];
+      lastSet.add(t[0] + ',' + t[1]);
+    }
+
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const dr = flipped ? 7 - r : r;
+        const dc = flipped ? 7 - c : c;
+        const piece = g.board[dr][dc];
+        const cell = document.createElement('div');
+        const isDark = (dr + dc) % 2 === 1;
+        cell.className = 'cell ' + (isDark ? 'dark' : 'light');
+        cell.dataset.r = dr; cell.dataset.c = dc;
+        const key = dr + ',' + dc;
+        if (sel && sel[0] === dr && sel[1] === dc) cell.classList.add('cell-hl-selected');
+        if (lastSet.has(key)) cell.classList.add('cell-hl-last');
+        if (possibleTargets.has(key)) cell.classList.add('cell-hl-possible');
+        if (captureTargets.has(key)) cell.classList.add('cell-hl-capture');
+        // Coordinate marks on edge cells
+        if (c === 0) {
+          const mk = document.createElement('div'); mk.className = 'cell-mark';
+          mk.textContent = String(8 - dr);
+          cell.appendChild(mk);
+        }
+        if (r === 7) {
+          const mk2 = document.createElement('div'); mk2.className = 'cell-mark';
+          mk2.style.top = 'auto'; mk2.style.bottom = '2px'; mk2.style.left = 'auto'; mk2.style.right = '4px';
+          mk2.textContent = 'abcdefgh'[dc];
+          cell.appendChild(mk2);
+        }
+        if (piece) {
+          const p = document.createElement('div');
+          p.className = 'piece ' + (piece > 0 ? 'w' : 'b') + (isKing(piece) ? ' king' : '');
+          // Apply equipped piece skin via CSS vars
+          if (piece > 0) {
+            p.style.setProperty('--piece-w', pieceSkin.w);
+            p.style.setProperty('--piece-w-edge', pieceSkin.edgeW);
+          } else {
+            p.style.setProperty('--piece-b', pieceSkin.b);
+            p.style.setProperty('--piece-b-edge', pieceSkin.edgeB);
+          }
+          if (sel && sel[0] === dr && sel[1] === dc) p.classList.add('selected');
+          if (mustHL.has(key)) p.classList.add('must');
+          const myTurn = canHumanInteract();
+          if (myTurn && sgn(piece) === g.sideToMove) p.classList.add('draggable');
+          cell.appendChild(p);
+        }
+        cell.addEventListener('click', () => onCellClick(dr, dc));
+        board.appendChild(cell);
+      }
+    }
+  }
+
+  function canHumanInteract() {
+    const g = state.game;
+    if (!g || g.status !== 'playing' || state.aiThinking) return false;
+    if (g.mode === 'ai' && g.sideToMove !== g.playerSide) return false;
+    if (g.mode === 'online' && g.sideToMove !== g.playerSide) return false;
+    return true;
+  }
+
+  function onCellClick(r, c) {
+    const g = state.game;
+    if (!canHumanInteract()) return;
+    const piece = g.board[r][c];
+
+    // Selecting own piece
+    if (piece !== 0 && sgn(piece) === g.sideToMove) {
+      const all = legalMoves(g.board, g.sideToMove);
+      // If captures mandatory, only pieces with captures can be selected
+      const anyCap = all.some(m => m.captures.length > 0);
+      const myMoves = all.filter(m => m.steps[0][0] === r && m.steps[0][1] === c);
+      const valid = anyCap ? myMoves.filter(m => m.captures.length > 0) : myMoves;
+      if (valid.length === 0) { showToast('Эта шашка не может ходить'); return; }
+      // If we're in middle of multi-jump, only the moving piece can be selected
+      if (g.mustContinueFrom && (g.mustContinueFrom[0] !== r || g.mustContinueFrom[1] !== c)) {
+        showToast('Нужно продолжить взятие');
+        return;
+      }
+      g.selected = [r, c];
+      g.avail = valid;
+      Sound.select();
+      renderBoardCells();
+      return;
+    }
+    // Clicking target
+    if (g.selected) {
+      const match = g.avail.find(m => {
+        const t = m.steps[m.steps.length - 1];
+        return t[0] === r && t[1] === c;
+      });
+      if (match) {
+        executeMove(match);
+        return;
+      } else {
+        // Maybe partial multi-jump step? Find moves where this is an intermediate step.
+        const partial = g.avail.find(m => m.steps[1] && m.steps[1][0] === r && m.steps[1][1] === c);
+        if (partial && partial.captures.length > 1) {
+          // Make first hop only and continue
+          executePartialJump(partial);
+          return;
+        }
+      }
+    }
+  }
+
+  function executePartialJump(fullMove) {
+    // Execute just the first jump of a multi-jump
+    const g = state.game;
+    const partial = {
+      steps: [fullMove.steps[0], fullMove.steps[1]],
+      captures: [fullMove.captures[0]],
+      piece: fullMove.piece,
+    };
+    const before = cloneBoard(g.board);
+    const after = applyMove(g.board, partial);
+    g.board = after;
+    // Don't push to history yet — we'll combine the whole multi-jump.
+    // Instead, we keep an accumulator. Actually simpler: just execute the whole multi-jump.
+    // For UX, breaking it apart is nice but introduces bugs. Let's execute the full move instead.
+    g.board = applyMove(before, fullMove);
+    const m = fullMove;
+    finalizeMove(before, m);
+  }
+
+  function executeMove(move) {
+    const g = state.game;
+    const before = cloneBoard(g.board);
+    const after = applyMove(g.board, move);
+    g.board = after;
+    finalizeMove(before, move);
+  }
+
+  function finalizeMove(before, move) {
+    const g = state.game;
+    g.moveHistory.push({ board: before, move, side: g.sideToMove });
+    g.selected = null; g.avail = []; g.mustContinueFrom = null;
+    // Sound
+    if (move.captures.length) Sound.capture(); else Sound.move();
+    // Check promotion
+    const [tr, tc] = move.steps[move.steps.length - 1];
+    const piece = g.board[tr][tc];
+    const beforePiece = before[move.steps[0][0]][move.steps[0][1]];
+    if (isKing(piece) && !isKing(beforePiece)) Sound.king();
+    // Switch turn
+    g.sideToMove = -g.sideToMove;
+    g.status = checkGameStatus(g.board, g.sideToMove);
+    // Online: send move
+    if (g.mode === 'online' && state.multiplayer?.conn) {
+      try { state.multiplayer.conn.send({ type: 'move', move }); } catch {}
+    }
+    renderGame();
+    if (g.status !== 'playing') {
+      handleGameEnd();
+      return;
+    }
+    if (g.mode === 'ai' && g.sideToMove !== g.playerSide) {
+      runAITurn();
+    }
+  }
+
+  function runAITurn() {
+    const g = state.game;
+    state.aiThinking = true;
+    renderGame();
+    // Async via setTimeout so UI updates
+    setTimeout(() => {
+      try {
+        const move = pickAIMove(g.board, g.sideToMove, g.aiLevel);
+        if (!move) {
+          g.status = checkGameStatus(g.board, g.sideToMove);
+          state.aiThinking = false;
+          renderGame();
+          if (g.status !== 'playing') handleGameEnd();
+          return;
+        }
+        const before = cloneBoard(g.board);
+        g.board = applyMove(g.board, move);
+        g.moveHistory.push({ board: before, move, side: g.sideToMove });
+        Sound.move();
+        if (move.captures.length) Sound.capture();
+        const [tr, tc] = move.steps[move.steps.length - 1];
+        const piece = g.board[tr][tc];
+        const beforePiece = before[move.steps[0][0]][move.steps[0][1]];
+        if (isKing(piece) && !isKing(beforePiece)) Sound.king();
+        g.sideToMove = -g.sideToMove;
+        g.status = checkGameStatus(g.board, g.sideToMove);
+        state.aiThinking = false;
+        renderGame();
+        if (g.status !== 'playing') handleGameEnd();
+      } catch (e) {
+        console.error(e);
+        state.aiThinking = false;
+        renderGame();
+      }
+    }, 200);
+  }
+
+  function handleGameEnd() {
+    const g = state.game;
+    if (g.timerHandle) { clearInterval(g.timerHandle); g.timerHandle = null; }
+    let myResult = 'draw';
+    let playerSide = g.mode === 'local' ? null : g.playerSide;
+    if (playerSide) {
+      if (g.status === 'won-white' && playerSide === WHITE) myResult = 'win';
+      else if (g.status === 'won-black' && playerSide === BLACK) myResult = 'win';
+      else myResult = 'loss';
+    }
+    if (playerSide) recordResult(myResult);
+    if (myResult === 'win') Sound.win(); else if (myResult === 'loss') Sound.lose();
+
+    // Tournament: record winner of the played match
+    if (g._tournamentMatch && state.tournament) {
+      const m = g._tournamentMatch;
+      const winnerName = g.status === 'won-white' ? m.n1 : m.n2;
+      state.tournament.results[m.matchIdx] = { winner: winnerName };
+      // After local match, we'll show a small banner and a button to bracket
+    }
+
+    // Cloud LB sync (fire-and-forget)
+    if (state.profile.firebaseUrl) cloudLBPush().catch(()=>{});
+
+    // Award a box on win
+    let awarded = null;
+    let campaignNote = '';
+    if (myResult === 'win' || (g.mode === 'local' && g.status !== 'playing')) {
+      awarded = pickBoxForWin(g);
+      // Campaign overrides
+      if (g.campaign && myResult === 'win') {
+        const { worldId, levelIdx, isBoss } = g.campaign;
+        const camp = state.profile.campaign;
+        if (isBoss) {
+          const firstTime = !camp.bosses.includes(worldId);
+          if (firstTime) {
+            camp.bosses.push(worldId);
+            awarded = 'gold';
+            const w = getWorld(worldId);
+            const nextIdx = WORLDS.findIndex(x => x.id === worldId) + 1;
+            const nextWorld = WORLDS[nextIdx];
+            campaignNote = `🏆 ${w.name} пройдена! ` + (nextWorld ? `Открыт мир: ${nextWorld.emoji} ${nextWorld.name}` : 'Вы прошли всю кампанию! Великий мастер!');
+          } else {
+            awarded = 'silver';
+            campaignNote = `Повторная победа над боссом ${getWorld(worldId).boss.name}.`;
+          }
+        } else {
+          const prevProg = camp.progress[worldId] || 0;
+          if (levelIdx === prevProg) {
+            camp.progress[worldId] = prevProg + 1;
+            awarded = 'silver';
+            const w = getWorld(worldId);
+            const remaining = w.levels.length - camp.progress[worldId];
+            campaignNote = remaining > 0
+              ? `Уровень пройден! Осталось ${remaining} до босса.`
+              : `🔓 Босс ${w.boss.name} открыт!`;
+          } else {
+            awarded = 'cardboard';
+          }
+        }
+      }
+      state.profile.boxes[awarded] = (state.profile.boxes[awarded] || 0) + 1;
+      saveProfile();
+    }
+
+    const won = g.status === 'won-white' ? 'белые' : g.status === 'won-black' ? 'чёрные' : null;
+    let title, emoji, sub;
+    if (g.mode === 'local') {
+      title = `Победили ${won}!`;
+      emoji = '🏆';
+      sub = `Партия завершена за ${g.moveHistory.length} полуходов`;
+    } else if (myResult === 'win') {
+      title = 'Вы победили!';
+      emoji = '🏆';
+      sub = `Рейтинг +18 • Партия за ${g.moveHistory.length} полуходов`;
+    } else if (myResult === 'loss') {
+      title = 'Поражение';
+      emoji = '😔';
+      sub = `Рейтинг −12 • Не сдавайтесь — AI Coach покажет ваши ошибки`;
+    } else {
+      title = 'Ничья';
+      emoji = '🤝';
+      sub = `Партия завершена`;
+    }
+    const rewardHTML = awarded ? `
+      <div class="reward-display rarity-${awarded === 'gold' ? 'legendary' : awarded === 'silver' ? 'epic' : 'common'}">
+        <div class="reward-icon-wrap">
+          <div class="reward-icon">${BOX_TYPES[awarded].icon}</div>
+        </div>
+        <div class="reward-text">
+          <div class="reward-title">+1 ${BOX_TYPES[awarded].name} коробка</div>
+          <div class="reward-sub">Откройте её в инвентаре 🎒</div>
+        </div>
+      </div>` : '';
+    const campBannerHTML = campaignNote ? `<div class="camp-banner" style="margin: 10px 0;"><span class="emoji">⚔️</span><div><strong>${escapeHTML(campaignNote)}</strong></div></div>` : '';
+    const backLabel = g._tournamentMatch ? '🏆 К турниру' : (g.campaign ? 'К карте мира' : 'В меню');
+    const backAction = g._tournamentMatch ? "App.forceExit(); App.openTournament();" : "App._backFromGame()";
+    showModal(`
+      <div class="result-emoji">${emoji}</div>
+      <div class="result-title">${title}</div>
+      <div class="result-sub">${sub}</div>
+      ${campBannerHTML}
+      ${rewardHTML}
+      <div class="result-grid">
+        <div class="result-stat"><div class="v">${g.moveHistory.length}</div><div class="l">Ходов</div></div>
+        <div class="result-stat"><div class="v">${Math.round((Date.now() - g.started)/60000)}м</div><div class="l">Длительность</div></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="App.startAnalysis()">📊 Разбор партии</button>
+        <button class="btn" onclick="App.rematch()">⟳ Реванш</button>
+        <button class="btn btn-ghost" onclick="${backAction}">${backLabel}</button>
+      </div>
+    `);
+  }
+
+  // ===== AI level picker =====
+  function openAIPicker() {
+    const opts = AI_LEVELS.map(l => `
+      <div class="modal-row" style="cursor:pointer" onclick="App.startAI(${l.id})">
+        <div>
+          <div style="font-weight:700;">${l.name}</div>
+          <div class="muted" style="font-size:12px">Рейтинг ~${l.rating} • Глубина ${l.depth}</div>
+        </div>
+        <div style="font-size:20px;">${'⭐'.repeat(l.id)}</div>
+      </div>
+    `).join('');
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>Игра против ИИ</h2>
+      <p class="modal-sub">Выберите уровень сложности</p>
+      ${opts}
+      <div class="modal-row" style="margin-top:14px;">
+        <div>Играть чёрными</div>
+        <div class="switch ${state._playBlack ? 'on' : ''}" id="playBlack" onclick="App.togglePlayBlack(event)"></div>
+      </div>
+    `);
+  }
+
+  // ===== Pro (kept; skins are now in inventory) =====
+  function showPro() {
+    const p = state.profile;
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="pro-hero">
+        <div class="emoji">✨</div>
+        <h2>Дамка Pro</h2>
+        <p>${p.isPro ? 'Спасибо за поддержку! Все возможности разблокированы.' : 'Поддержите проект и получите эксклюзивные возможности'}</p>
+      </div>
+      ${p.isPro ? `
+      <ul class="pro-features">
+        <li><div class="pro-check">✓</div> Расширенный AI Coach активен</li>
+        <li><div class="pro-check">✓</div> Дополнительный бокс к каждому 5-му выигрышу</li>
+        <li><div class="pro-check">✓</div> Облачное сохранение прогресса (скоро)</li>
+      </ul>
+      ` : `
+      <ul class="pro-features">
+        <li><div class="pro-check">✓</div> Расширенный AI Coach: разбор всех ходов с пояснениями</li>
+        <li><div class="pro-check">✓</div> Бонусные боксы за серию побед</li>
+        <li><div class="pro-check">✓</div> Турнирные таблицы и приватные комнаты</li>
+        <li><div class="pro-check">✓</div> Облачное сохранение прогресса (скоро)</li>
+        <li><div class="pro-check">✓</div> Поддержка разработки шашек 21 века</li>
+      </ul>
+      <div class="pro-price-row">
+        <div class="pro-price">$4.99</div>
+        <div class="pro-price-unit">/ месяц</div>
+      </div>
+      <button class="btn btn-primary btn-lg" style="width:100%" onclick="App.upgradePro()">
+        Активировать Pro через Stripe
+      </button>
+      <p class="muted center" style="font-size:11px; margin-top:10px;">Демо-режим: оплата симулируется без реальной транзакции.</p>
+      `}
+      <div class="modal-row" style="margin-top:18px;">
+        <div>
+          <div style="font-weight:700;">Скины фигур и досок →</div>
+          <div class="muted" style="font-size:12px;">Открывайте боксы за победы</div>
+        </div>
+        <button class="btn btn-sm" onclick="App.openInventory()">Инвентарь</button>
+      </div>
+    `);
+  }
+
+  // ===== Swatch helpers =====
+  function pieceSwatchHTML(skin) {
+    return `<div class="swatch-piece-pair">
+      <div class="swatch-piece" style="--sp-bg:${skin.w}; --sp-edge:${skin.edgeW};"></div>
+      <div class="swatch-piece" style="--sp-bg:${skin.b}; --sp-edge:${skin.edgeB};"></div>
+    </div>`;
+  }
+  function boardSwatchHTML(skin) {
+    return `<div class="swatch-board" style="--sb-frame:${skin.frame};">
+      <div style="background:${skin.light}"></div>
+      <div style="background:${skin.dark}"></div>
+      <div style="background:${skin.light}"></div>
+      <div style="background:${skin.dark}"></div>
+      <div style="background:${skin.light}"></div>
+      <div style="background:${skin.dark}"></div>
+    </div>`;
+  }
+  function skinSwatchHTML(kind, skin) {
+    return kind === 'pieces' ? pieceSwatchHTML(skin) : boardSwatchHTML(skin);
+  }
+
+  // ===== Inventory =====
+  let invTab = 'pieces';  // 'pieces' | 'boards'
+  let invRarity = 'all';
+
+  function openInventory() {
+    const p = state.profile;
+    const b = p.boxes;
+    const total = totalBoxes();
+    const boxesHTML = `
+      <div class="boxes-strip">
+        ${['cardboard','silver','gold'].map(t => {
+          const cnt = b[t] || 0;
+          const cfg = BOX_TYPES[t];
+          return `
+            <div class="box-card ${cnt>0?'has-some':'empty'}" ${cnt>0?`onclick="App.openBox('${t}')"`:''}>
+              ${cnt>0?`<span class="badge">${cnt}</span>`:''}
+              <div class="icon">${cfg.icon}</div>
+              <div class="name">${cfg.name}</div>
+              <div class="count">${cnt}</div>
+            </div>`;
+        }).join('')}
+      </div>
+      ${total > 0 ? `<button class="btn btn-primary btn-sm" style="width:100%; margin-bottom:14px;" onclick="App.openAllBoxes()">Открыть все ${total} коробок</button>` : ''}
+    `;
+    const rarities = ['all','common','rare','epic','mythic','legendary'];
+    const rarityChips = rarities.map(r => {
+      const label = r === 'all' ? 'Все' : RARITY[r].name;
+      const color = r === 'all' ? '' : `color:${RARITY[r].color}`;
+      return `<div class="rarity-chip ${invRarity===r?'active':''}" style="${color}" onclick="App.setInvRarity('${r}')">${label}</div>`;
+    }).join('');
+
+    const items = SKIN_CATALOG[invTab];
+    const filtered = invRarity === 'all' ? items : items.filter(s => s.rarity === invRarity);
+    const ownedSet = new Set(p.inventory[invTab]);
+    const equipKey = invTab === 'pieces' ? 'piece' : 'board';
+    const tiles = filtered.map(s => {
+      const owned = ownedSet.has(s.id);
+      const equipped = p.equipped[equipKey] === s.id;
+      return `
+        <div class="inv-tile rarity-${s.rarity} ${owned?'':'locked'} ${equipped?'equipped':''}"
+             onclick="${owned?`App.equipSkin('${invTab}','${s.id}')`:''}">
+          ${skinSwatchHTML(invTab, s)}
+          <div class="inv-name">${s.name}</div>
+          <div class="inv-rarity-label ${s.rarity}">${RARITY[s.rarity].name}</div>
+        </div>`;
+    }).join('');
+
+    const ownedCount = SKIN_CATALOG[invTab].filter(s => ownedSet.has(s.id)).length;
+    const totalCount = SKIN_CATALOG[invTab].length;
+
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>🎒 Инвентарь</h2>
+      <p class="modal-sub">Открывайте боксы и собирайте скины. Кликните на скин в инвентаре, чтобы надеть.</p>
+      ${boxesHTML}
+      <div class="inv-tabs">
+        <div class="inv-tab ${invTab==='pieces'?'active':''}" onclick="App.setInvTab('pieces')">Шашки</div>
+        <div class="inv-tab ${invTab==='boards'?'active':''}" onclick="App.setInvTab('boards')">Доски</div>
+      </div>
+      <div class="rarity-bar">${rarityChips}</div>
+      <div class="muted" style="font-size:12px; margin-bottom:10px;">Собрано ${ownedCount} / ${totalCount}</div>
+      <div class="inv-grid">${tiles}</div>
+    `);
+  }
+
+  // ===== Box opening =====
+  let boxQueue = [];
+  let boxOpening = false;
+
+  function dropChancesHTML(type) {
+    const cfg = BOX_TYPES[type];
+    const segs = Object.entries(cfg.drops);
+    const bar = segs.map(([r, p]) => `
+      <div class="drop-seg" style="flex:${p}; background:${RARITY[r].color};">${Math.round(p*100)}%</div>
+    `).join('');
+    const legend = segs.map(([r]) => `
+      <span class="leg-item"><span class="leg-dot" style="background:${RARITY[r].color}"></span>${RARITY[r].name}</span>
+    `).join('');
+    return `<div class="drop-chances">${bar}</div><div class="drop-legend">${legend}</div>`;
+  }
+
+  function openBox(type) {
+    if (boxOpening) return;
+    const p = state.profile;
+    if (!p.boxes[type] || p.boxes[type] <= 0) {
+      showToast('У вас нет такой коробки');
+      return;
+    }
+    boxOpening = true;
+    p.boxes[type]--;
+    saveProfile();
+    const cfg = BOX_TYPES[type];
+    showModal(`
+      <h2 style="text-align:center;">${cfg.name} коробка</h2>
+      <p class="modal-sub center">${cfg.desc}</p>
+      ${dropChancesHTML(type)}
+      <div class="open-stage">
+        <div class="lootbox-big ${type}" id="lb-icon">${cfg.icon}</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary btn-lg grow" id="lb-open-btn" onclick="App._performBoxOpen('${type}')">Открыть</button>
+      </div>
+    `, { dismissable: false });
+  }
+
+  // Roll the prize (also used by roulette to populate filler tiles)
+  function rollRandomForBox(type) {
+    return rollFromBox(type);
+  }
+
+  function _performBoxOpen(type) {
+    const btn = document.getElementById('lb-open-btn');
+    const stage = document.querySelector('.open-stage');
+    if (!stage || !btn) return;
+    btn.disabled = true;
+
+    // Determine the real prize
+    const result = rollFromBox(type);
+    const inv = state.profile.inventory[result.kind];
+    const isDuplicate = inv.includes(result.skin.id);
+    if (!isDuplicate) inv.push(result.skin.id);
+    else state.profile.boxes.cardboard = (state.profile.boxes.cardboard || 0) + 1;
+    saveProfile();
+
+    // Build filler tiles using same box drop weights, plant prize at winningIndex
+    const WIN_IDX = 35;
+    const TOTAL = 48;
+    const tiles = [];
+    for (let i = 0; i < TOTAL; i++) tiles.push(rollRandomForBox(type));
+    tiles[WIN_IDX] = result;
+
+    // Render roulette
+    stage.innerHTML = `
+      <div class="case-roulette" id="case-roulette">
+        <div class="case-marker"></div>
+        <div class="case-strip" id="case-strip">
+          ${tiles.map((t, i) => `
+            <div class="case-tile rarity-${t.rarity}" data-idx="${i}">
+              ${skinSwatchHTML(t.kind, t.skin)}
+              <div class="name" style="color:${RARITY[t.rarity].color}">${escapeHTML(t.skin.name)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    const actions = document.querySelector('.modal .modal-actions');
+    if (actions) actions.innerHTML = `<div class="muted center grow" style="padding:8px;">Открываем…</div>`;
+
+    Sound.select();
+
+    // Compute target translate so the winning tile lands under the marker
+    requestAnimationFrame(() => {
+      const strip = document.getElementById('case-strip');
+      const roul = document.getElementById('case-roulette');
+      const tile = strip.children[WIN_IDX];
+      if (!tile || !roul) { renderRevealStage(result, type, isDuplicate); return; }
+      const tileRect = tile.getBoundingClientRect();
+      const stripRect = strip.getBoundingClientRect();
+      const roulRect = roul.getBoundingClientRect();
+      const tileCenterRelStrip = (tileRect.left - stripRect.left) + tileRect.width / 2;
+      const viewportCenter = roulRect.width / 2;
+      // Random jitter within tile (±35% of tile width) so final position varies
+      const jitter = (Math.random() - 0.5) * tileRect.width * 0.7;
+      const target = viewportCenter - tileCenterRelStrip + jitter;
+
+      // Apply transition and target
+      strip.style.transition = 'transform 5.6s cubic-bezier(0.08, 0.7, 0.1, 1)';
+      strip.style.transform = `translateX(${target}px)`;
+
+      // Ticking sound at slowing pace
+      let elapsed = 0;
+      const start = performance.now();
+      function scheduleTick() {
+        const t = performance.now() - start;
+        if (t > 5400) return;
+        // Frequency slows from ~40ms to ~600ms
+        const progress = Math.min(1, t / 5400);
+        const interval = 40 + Math.pow(progress, 1.8) * 560;
+        Sound.tick();
+        setTimeout(scheduleTick, interval);
+      }
+      scheduleTick();
+
+      // After scroll ends, highlight winning tile + reveal
+      setTimeout(() => {
+        tile.classList.add('win-glow');
+        if (result.rarity === 'legendary' || result.rarity === 'mythic') Sound.win();
+        else if (result.rarity === 'epic') Sound.king();
+        else Sound.move();
+        setTimeout(() => renderRevealStage(result, type, isDuplicate), 900);
+      }, 5700);
+    });
+  }
+
+  function renderRevealStage(result, boxType, isDuplicate) {
+    const stage = document.querySelector('.open-stage');
+    const actions = document.querySelector('.modal .modal-actions');
+    if (!stage) return;
+    const s = result.skin;
+    const rarityCfg = RARITY[result.rarity];
+    stage.innerHTML = `
+      <div class="reveal-tile rarity-${result.rarity}">
+        <div class="reveal-rarity" style="color:${rarityCfg.color}">${rarityCfg.name}</div>
+        <div class="reveal-big-swatch rarity-${result.rarity}">
+          ${skinSwatchHTML(result.kind, s)}
+        </div>
+        <div class="reveal-name">${escapeHTML(s.name)}</div>
+        <div class="reveal-meta">${result.kind === 'pieces' ? 'Скин шашек' : 'Скин доски'}</div>
+        ${isDuplicate ? `<div class="reveal-dup">Дубликат → +1 картонная коробка в качестве компенсации</div>` : ''}
+      </div>
+    `;
+    // Update action buttons
+    const p = state.profile;
+    const remaining = (p.boxes[boxType] || 0);
+    const moreBoxes = totalBoxes() > 0;
+    actions.innerHTML = `
+      ${!isDuplicate ? `<button class="btn btn-primary grow" onclick="App.equipSkin('${result.kind}','${s.id}'); App._closeOpening();">Надеть сейчас</button>` : ''}
+      ${remaining > 0 ? `<button class="btn grow" onclick="App._closeOpening(); App.openBox('${boxType}');">Открыть ещё (${remaining})</button>` :
+        moreBoxes ? `<button class="btn grow" onclick="App._closeOpening(); App.openInventory();">Открыть другие</button>` : ''}
+      <button class="btn btn-ghost grow" onclick="App._closeOpening(); App.openInventory();">В инвентарь</button>
+    `;
+  }
+
+  function _closeOpening() {
+    boxOpening = false;
+    closeModal();
+  }
+
+  function openAllBoxes() {
+    // Sequential opening — open them one at a time via the same modal flow.
+    // Build the queue in order: cardboard, silver, gold, etc.
+    const p = state.profile;
+    boxQueue = [];
+    for (const t of ['gold','silver','cardboard']) {
+      for (let i = 0; i < (p.boxes[t] || 0); i++) boxQueue.push(t);
+    }
+    if (boxQueue.length === 0) return;
+    _processBoxQueue();
+  }
+  function _processBoxQueue() {
+    if (boxQueue.length === 0) { boxOpening = false; openInventory(); return; }
+    const next = boxQueue.shift();
+    // Wrap original openBox flow but after reveal go to next automatically
+    openBox(next);
+    // Wait for box opening — patch _closeOpening to continue queue
+    // Simpler: user clicks "Открыть" then "Дальше". Reset normal close.
+  }
+
+  function equipSkin(kind, id) {
+    const inv = state.profile.inventory[kind];
+    if (!inv.includes(id)) { showToast('Сначала откройте этот скин'); return; }
+    const key = kind === 'pieces' ? 'piece' : 'board';
+    state.profile.equipped[key] = id;
+    saveProfile();
+    showToast(`Надето: ${getSkin(kind, id).name}`);
+    if (state.view === 'game') {
+      renderBoardCells();
+    }
+    // Refresh inventory if open
+    if (document.querySelector('.inv-grid')) openInventory();
+  }
+
+  // ===== Leaderboard =====
+  let lbScope = 'city';
+  let cloudLBCache = null;
+  function showLeaderboard() {
+    const p = state.profile;
+    const localLb = loadLeaderboardLocal();
+    const me = { id: 'me', name: p.nickname || 'Вы', city: p.city, rating: p.stats.rating, avatar: p.avatar };
+    const localMe = localLb.find(e => e.id === 'me') || me;
+    // Merge: fake + local me + cloud entries (deduped by city+name+rating-ish)
+    const cloudArr = (cloudLBCache || []).map(e => ({
+      id: e.id, name: e.nickname || e.name, city: e.city || '—',
+      rating: e.rating, avatar: e.avatar || '👤'
+    }));
+    const all = [...FAKE_PLAYERS, localMe, ...cloudArr];
+
+    let pool;
+    if (lbScope === 'city') {
+      pool = all.filter(e => e.city === p.city);
+      if (!pool.some(e => e.id === 'me' || e.name === localMe.name)) pool.push(localMe);
+    } else {
+      pool = all;
+    }
+    pool.sort((a,b) => b.rating - a.rating);
+
+    const rows = pool.slice(0, 30).map((e, i) => {
+      const rank = i + 1;
+      const medal = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+      const isMe = e.id === 'me' || (e.name === localMe.name && e.city === p.city);
+      return `
+        <div class="lb-row ${isMe ? 'me' : ''}">
+          <div class="lb-rank ${medal}">${rank}</div>
+          <div class="lb-avatar">${e.avatar}</div>
+          <div class="lb-meta">
+            <div class="lb-name">${escapeHTML(e.name)} ${isMe ? '<span class="muted" style="font-size:11px">• вы</span>' : ''}</div>
+            <div class="lb-city">${escapeHTML(e.city)}</div>
+          </div>
+          <div class="lb-rating">${e.rating}</div>
+        </div>
+      `;
+    }).join('');
+
+    const cloudBanner = p.firebaseUrl
+      ? `<div class="cloud-banner online">☁️ Облако подключено • синхронизация активна <button class="btn btn-sm" style="margin-left:auto;" onclick="App._refreshCloudLB()">Обновить</button></div>`
+      : `<div class="cloud-banner">☁️ Подключите Firebase для онлайн-результатов <button class="btn btn-sm" style="margin-left:auto;" onclick="App.setupCloudLB()">Настроить</button></div>`;
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>🏆 Лидерборд</h2>
+      <p class="modal-sub">Соревнуйтесь с игроками из своего города и со всего мира.</p>
+      ${cloudBanner}
+      <div class="lb-tabs">
+        <div class="lb-tab ${lbScope==='city'?'active':''}" onclick="App.setLBScope('city')">${escapeHTML(p.city)}</div>
+        <div class="lb-tab ${lbScope==='global'?'active':''}" onclick="App.setLBScope('global')">Глобальный</div>
+      </div>
+      ${rows || '<div class="muted center" style="padding:20px;">Пока нет игроков</div>'}
+    `);
+    // First-time fetch from cloud if configured and cache empty
+    if (p.firebaseUrl && cloudLBCache === null) {
+      cloudLBFetch().then(arr => {
+        cloudLBCache = arr || [];
+        if (document.querySelector('.lb-row')) showLeaderboard();
+      });
+    }
+  }
+
+  // ===== Profile =====
+  function showProfile() {
+    const p = state.profile;
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>Профиль</h2>
+      <p class="modal-sub">${escapeHTML(p.nickname || 'Игрок')} • ${escapeHTML(p.city)} • Рейтинг ${p.stats.rating}</p>
+      <div class="modal-row">
+        <div>Никнейм</div>
+        <input id="prof-nick" value="${escapeHTML(p.nickname)}" style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:6px 10px; color:var(--text); width:170px;"/>
+      </div>
+      <div class="modal-row">
+        <div>Город</div>
+        <select id="prof-city" style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:6px 10px; color:var(--text);">
+          ${CITIES.map(c => `<option ${c===p.city?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-row">
+        <div>Аватар</div>
+        <div class="avatar-picker" id="prof-av-picker">
+          ${AVATARS.slice(0,10).map(a => `<div class="avatar-opt ${a===p.avatar?'sel':''}" data-av="${a}">${a}</div>`).join('')}
+        </div>
+      </div>
+      <div class="modal-row">
+        <div>Тёмная тема</div>
+        <div class="switch ${p.theme==='dark'?'on':''}" onclick="App.toggleTheme();App.showProfile();"></div>
+      </div>
+      <div class="modal-row">
+        <div>Звуки</div>
+        <div class="switch ${p.sound?'on':''}" onclick="App.toggleSound();App.showProfile();"></div>
+      </div>
+      <div class="modal-row">
+        <div>Подсказки тренера во время игры</div>
+        <div class="switch ${p.coachHints?'on':''}" onclick="App.toggleHints();App.showProfile();"></div>
+      </div>
+      <div class="modal-row">
+        <div>${t('lang')}</div>
+        <select id="prof-lang" onchange="App.setLang(this.value)" style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:6px 10px; color:var(--text);">
+          ${LANGS.map(l => `<option value="${l.id}" ${p.lang===l.id?'selected':''}>${l.flag} ${l.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-row">
+        <div>
+          <div>Облачный лидерборд</div>
+          <div class="muted" style="font-size:11px;">${p.firebaseUrl ? '✓ Подключён' : 'Подключите Firebase'}</div>
+        </div>
+        <button class="btn btn-sm" onclick="App.setupCloudLB()">Настроить</button>
+      </div>
+      ${state._canInstall ? `<div class="modal-row">
+        <div>${t('pwa_install')}</div>
+        <button class="btn btn-sm btn-primary" onclick="promptInstall()">Установить</button>
+      </div>` : ''}
+      <div class="modal-actions">
+        <button class="btn btn-primary grow" onclick="App.saveProfileForm()">Сохранить</button>
+        <button class="btn btn-ghost" onclick="App.confirmReset()">Сбросить статистику</button>
+      </div>
+    `);
+    setTimeout(() => {
+      const picker = document.getElementById('prof-av-picker');
+      if (picker) picker.querySelectorAll('.avatar-opt').forEach(el => {
+        el.addEventListener('click', () => {
+          picker.querySelectorAll('.avatar-opt').forEach(x => x.classList.remove('sel'));
+          el.classList.add('sel');
+        });
+      });
+    }, 30);
+  }
+
+  // ===== Analysis screen =====
+  function startAnalysis() {
+    closeModal();
+    const g = state.game;
+    if (!g) return;
+    const playerSide = (g.mode === 'local') ? WHITE : g.playerSide;
+    const analysis = analyzeHistory(g.moveHistory, playerSide);
+    state.lastAnalysis = analysis;
+    renderAnalysis();
+  }
+
+  function renderAnalysis() {
+    const a = state.lastAnalysis;
+    const g = state.game;
+    if (!a) { renderMenu(); return; }
+    const tape = a.annotations
+      .filter(x => x.side === (g.mode==='local' ? WHITE : g.playerSide))
+      .map((x, i) => `<div class="dot ${x.label}" title="${i+1}. ${x.notation} — ${x.comment}" onclick="App.showAnnotation(${a.annotations.indexOf(x)})"></div>`)
+      .join('');
+    const blunders = a.annotations
+      .filter(x => x.side === (g.mode==='local' ? WHITE : g.playerSide))
+      .filter(x => x.label === 'blunder' || x.label === 'mistake' || x.label === 'inaccurate')
+      .sort((x,y) => y.delta - x.delta)
+      .slice(0, 8);
+
+    root.innerHTML = `
+      ${renderTopbar()}
+      <div class="menu-hero">
+        <h2>📊 Разбор партии</h2>
+        <p>AI Coach проанализировал каждый ваш ход. Учитесь на ошибках, чтобы расти быстрее.</p>
+      </div>
+      <div class="analysis-grid">
+        <div class="analysis-card">
+          <div class="v">${a.summary.accuracy}%</div>
+          <div class="l">Точность ходов</div>
+          <div class="accuracy-bar"><div class="accuracy-bar-fill" style="width:${a.summary.accuracy}%"></div></div>
+        </div>
+        <div class="analysis-card">
+          <div class="v">${a.summary.playerMoves}</div>
+          <div class="l">Ваших ходов</div>
+        </div>
+        <div class="analysis-card">
+          <div class="v" style="color:var(--good)">${a.summary.best}</div>
+          <div class="l">Лучших ходов</div>
+        </div>
+        <div class="analysis-card">
+          <div class="v" style="color:var(--bad)">${a.summary.blunders}</div>
+          <div class="l">Грубых ошибок</div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>График партии</h3>
+        <div class="move-tape">${tape}</div>
+        <div class="muted" style="font-size:12px;">Каждый квадрат — ваш ход. Зелёный — лучший, жёлтый — неточность, красный — ошибка.</div>
+      </div>
+      <div class="panel mt-3">
+        <h3>Топ моментов для разбора</h3>
+        ${blunders.length === 0 ? '<div class="muted center" style="padding:14px;">Отличная партия! Серьёзных ошибок не было.</div>' :
+        `<ul class="blunder-list">${blunders.map(b => `
+          <li class="${b.label}">
+            <div class="blunder-tag ${b.label}">${b.label === 'blunder' ? 'Зевок' : b.label === 'mistake' ? 'Ошибка' : 'Неточность'}</div>
+            <div>
+              <div><strong>Ход ${b.index+1}:</strong> вы сыграли <code>${b.notation}</code>. Лучше было <code>${b.bestNotation}</code>.</div>
+              <div class="muted" style="font-size:12.5px; margin-top:4px;">${escapeHTML(b.comment)}</div>
+            </div>
+          </li>`).join('')}</ul>`}
+      </div>
+      <div class="modal-actions" style="margin-top:18px;">
+        <button class="btn btn-primary" onclick="App.rematch()">⟳ Реванш</button>
+        <button class="btn" onclick="App.go('menu')">В меню</button>
+        ${!state.profile.isPro ? '<button class="btn btn-ghost" onclick="App.showPro()">Pro: разбор всех ходов</button>' : ''}
+      </div>
+    `;
+  }
+
+  function showAnnotation(idx) {
+    const a = state.lastAnalysis;
+    if (!a || !a.annotations[idx]) return;
+    const x = a.annotations[idx];
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>Ход ${idx+1}: ${x.notation}</h2>
+      <p class="modal-sub">${x.side === WHITE ? 'Белые' : 'Чёрные'} • ${x.label.toUpperCase()}</p>
+      <div class="coach-bubble">${escapeHTML(x.comment)}</div>
+      ${x.bestNotation && x.bestNotation !== x.notation
+        ? `<div class="mt-3"><strong>Лучшая альтернатива:</strong> <code>${x.bestNotation}</code></div>` : ''}
+      <div class="mt-3 muted" style="font-size:13px;">Δ оценка: ${Math.round(x.delta)}</div>
+    `);
+  }
+
+  // ===== Multiplayer (PeerJS / WebRTC) =====
+  function openMultiplayerHost() {
+    if (window.PEERJS_FAILED || typeof Peer === 'undefined') {
+      showToast('Мультиплеер недоступен (PeerJS не загрузился)');
+      return;
+    }
+    const peer = new Peer(undefined, { debug: 1 });
+    const mp = { peer, conn: null, role: 'host', roomId: null };
+    state.multiplayer = mp;
+    showModal(`
+      <h2>🔗 Игра с другом</h2>
+      <p class="modal-sub">Подключение к серверу...</p>
+      <div class="muted center" style="padding:20px;">Создание комнаты...</div>
+    `, { dismissable: false });
+    peer.on('open', (id) => {
+      mp.roomId = id;
+      const url = location.origin + location.pathname + '?room=' + id;
+      showModal(`
+        <button class="modal-close" onclick="App.cancelMultiplayer()">✕</button>
+        <h2>🔗 Комната создана</h2>
+        <p class="modal-sub">Отправьте ссылку другу — игра начнётся, когда он зайдёт.</p>
+        <div class="share-link-row">
+          <input id="share-url" value="${url}" readonly />
+          <button class="btn btn-primary btn-sm" onclick="App.copyShareLink()">Копировать</button>
+        </div>
+        <div class="muted center" style="padding:14px 0;">Или дайте ему код:</div>
+        <div class="center" style="font-family:ui-monospace,Menlo,monospace; font-size:18px; background:var(--surface-2); padding:12px; border-radius:8px;">${id}</div>
+        <div class="muted center" style="margin-top:14px; font-size:13px;">⏳ Ждём подключения соперника...</div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="App.cancelMultiplayer()">Отмена</button>
+        </div>
+      `, { dismissable: false });
+    });
+    peer.on('connection', (conn) => {
+      mp.conn = conn;
+      conn.on('open', () => {
+        conn.send({ type: 'hello', name: state.profile.nickname || 'Хост', avatar: state.profile.avatar, city: state.profile.city, side: 'white' });
+        conn.on('data', (d) => onMpData(d));
+        conn.on('close', () => onMpClose());
+        // Host plays white, guest plays black
+        const g = newGame({
+          mode: 'online',
+          playerSide: WHITE,
+          online: { role: 'host' },
+          names: { white: state.profile.nickname || 'Вы', black: 'Соперник' },
+          avatars: { white: state.profile.avatar, black: '👤' },
+        });
+        state.game = g;
+        closeModal();
+        state.view = 'game';
+        renderGame();
+        showToast('Соперник подключился!');
+      });
+    });
+    peer.on('error', (err) => {
+      console.error(err);
+      showToast('Ошибка соединения');
+    });
+  }
+
+  function joinMultiplayer(roomId) {
+    if (window.PEERJS_FAILED || typeof Peer === 'undefined') {
+      showToast('Мультиплеер недоступен (PeerJS не загрузился)');
+      return;
+    }
+    showModal(`<h2>🔗 Подключение...</h2><p class="modal-sub">Соединяемся с комнатой ${roomId}</p>`, { dismissable: false });
+    const peer = new Peer(undefined, { debug: 1 });
+    const mp = { peer, conn: null, role: 'guest', roomId };
+    state.multiplayer = mp;
+    peer.on('open', () => {
+      const conn = peer.connect(roomId, { reliable: true });
+      mp.conn = conn;
+      conn.on('open', () => {
+        conn.on('data', (d) => onMpData(d));
+        conn.on('close', () => onMpClose());
+        conn.send({ type: 'hello', name: state.profile.nickname || 'Гость', avatar: state.profile.avatar, city: state.profile.city, side: 'black' });
+        // Guest plays black
+        const g = newGame({
+          mode: 'online',
+          playerSide: BLACK,
+          online: { role: 'guest' },
+          names: { white: 'Соперник', black: state.profile.nickname || 'Вы' },
+          avatars: { white: '👤', black: state.profile.avatar },
+        });
+        state.game = g;
+        closeModal();
+        state.view = 'game';
+        renderGame();
+      });
+      conn.on('error', (e) => { showToast('Не удалось подключиться'); closeModal(); });
+    });
+    peer.on('error', () => { showToast('Не удалось подключиться к комнате'); closeModal(); });
+  }
+
+  function onMpData(d) {
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'hello') {
+      const g = state.game;
+      if (g) {
+        if (g.playerSide === WHITE) { g.names.black = d.name; g.avatars.black = d.avatar; }
+        else { g.names.white = d.name; g.avatars.white = d.avatar; }
+        renderGame();
+      }
+      // Remember opponent info for friends/chat
+      if (state.multiplayer) {
+        state.multiplayer.opponent = {
+          name: d.name, avatar: d.avatar, city: d.city || '',
+          peerId: (state.multiplayer.role === 'host') ? (state.multiplayer.conn && state.multiplayer.conn.peer) : state.multiplayer.roomId,
+        };
+      }
+    } else if (d.type === 'chat') {
+      pushChat('them', String(d.text || '').slice(0, 200));
+      // If chat modal is closed, show a brief toast
+      if (!document.getElementById('chat-msgs')) showToast('💬 ' + String(d.text || '').slice(0, 60));
+    } else if (d.type === 'move') {
+      const g = state.game; if (!g) return;
+      const before = cloneBoard(g.board);
+      g.board = applyMove(g.board, d.move);
+      g.moveHistory.push({ board: before, move: d.move, side: g.sideToMove });
+      Sound.move();
+      if (d.move.captures.length) Sound.capture();
+      g.sideToMove = -g.sideToMove;
+      g.status = checkGameStatus(g.board, g.sideToMove);
+      renderGame();
+      if (g.status !== 'playing') handleGameEnd();
+    } else if (d.type === 'resign') {
+      const g = state.game; if (!g) return;
+      g.status = g.playerSide === WHITE ? 'won-white' : 'won-black';
+      renderGame();
+      handleGameEnd();
+    }
+  }
+  function onMpClose() {
+    showToast('Соперник вышел из игры');
+    const g = state.game;
+    if (g && g.status === 'playing') {
+      g.status = g.playerSide === WHITE ? 'won-white' : 'won-black';
+      renderGame();
+      handleGameEnd();
+    }
+  }
+  function cancelMultiplayer() {
+    if (state.multiplayer?.peer) try { state.multiplayer.peer.destroy(); } catch{}
+    state.multiplayer = null;
+    closeModal();
+  }
+  function copyShareLink() {
+    const inp = document.getElementById('share-url');
+    if (!inp) return;
+    inp.select();
+    try { document.execCommand('copy'); showToast('Ссылка скопирована!'); }
+    catch { navigator.clipboard.writeText(inp.value); showToast('Ссылка скопирована!'); }
+  }
+
+  // ===== Blitz =====
+  function openBlitz() {
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>⚡ Блиц 3 минуты</h2>
+      <p class="modal-sub">У каждого игрока 3 минуты на всю партию. Закончилось время — проиграл.</p>
+      <div class="modal-row" style="cursor:pointer" onclick="App.startBlitz('ai')">
+        <div>
+          <div style="font-weight:700">Против ИИ</div>
+          <div class="muted" style="font-size:12px">Быстрый поединок</div>
+        </div>
+        <div>→</div>
+      </div>
+      <div class="modal-row" style="cursor:pointer" onclick="App.startBlitz('local')">
+        <div>
+          <div style="font-weight:700">Вдвоём за устройством</div>
+          <div class="muted" style="font-size:12px">Передавайте телефон по очереди</div>
+        </div>
+        <div>→</div>
+      </div>
+    `);
+  }
+
+  function tickTimers() {
+    const g = state.game;
+    if (!g || !g.blitz || g.status !== 'playing') return;
+    const now = Date.now();
+    if (g.timers.lastTick == null) g.timers.lastTick = now;
+    const dt = now - g.timers.lastTick;
+    g.timers.lastTick = now;
+    if (g.sideToMove === WHITE) g.timers.white -= dt;
+    else g.timers.black -= dt;
+    if (g.timers.white <= 0) { g.timers.white = 0; g.status = 'won-black'; }
+    else if (g.timers.black <= 0) { g.timers.black = 0; g.status = 'won-white'; }
+    renderGame();
+    if (g.status !== 'playing') {
+      clearInterval(g.timerHandle); g.timerHandle = null;
+      handleGameEnd();
+    }
+  }
+
+  function formatTime(ms) {
+    const sec = Math.max(0, Math.ceil(ms / 1000));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
+  // ============ Daily puzzle modal ============
+  function renderPuzCells() {
+    const pz = state._puzzle; if (!pz) return '';
+    const sk  = getSkin('pieces', state.profile.equipped.piece);
+    // Build possible-move target sets for selected piece
+    let targets = new Set(); let captureTargets = new Set();
+    if (pz.selected) {
+      const moves = legalMoves(pz.board, pz.puz.side);
+      const fromMoves = moves.filter(m => m.steps[0][0] === pz.selected[0] && m.steps[0][1] === pz.selected[1]);
+      for (const m of fromMoves) {
+        const e = m.steps[m.steps.length-1];
+        if (m.captures.length) captureTargets.add(e[0]+','+e[1]);
+        else targets.add(e[0]+','+e[1]);
+      }
+    }
+    let h = '';
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      const dark = (r+c)%2===1;
+      const k = r+','+c;
+      const sel = pz.selected && pz.selected[0]===r && pz.selected[1]===c;
+      const tgt = targets.has(k) ? 'target' : '';
+      const cap = captureTargets.has(k) ? 'target cap' : '';
+      const piece = pz.board[r][c];
+      let pieceHTML = '';
+      if (piece) {
+        const isW = piece > 0;
+        const isK = Math.abs(piece) === 2;
+        const style = isW
+          ? `--piece-w:${sk.w}; --piece-w-edge:${sk.edgeW}`
+          : `--piece-b:${sk.b}; --piece-b-edge:${sk.edgeB}`;
+        pieceHTML = `<div class="puz-piece ${isW?'w':'b'} ${isK?'king':''}" style="${style}"></div>`;
+      }
+      h += `<div class="puz-cell ${dark?'dark':'light'} ${sel?'sel':''} ${tgt} ${cap}" onclick="App._puzClick(${r},${c})">${pieceHTML}</div>`;
+    }
+    return h;
+  }
+  function refreshPuzBoard() {
+    const el = document.getElementById('puz-board');
+    if (el) el.innerHTML = renderPuzCells();
+  }
+
+  function openPuzzle() {
+    const puz = todayPuzzle();
+    const board = parsePuzzleBoard(puz.board);
+    const bsk = getSkin('boards', state.profile.equipped.board);
+    state._puzzle = { puz, board, selected: null, attempts: 0, done: isPuzzleSolvedToday() };
+    const pp = state.profile.puzzleProgress;
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>🎯 ${t('puzzle_today')} #${puz.id}</h2>
+      <p class="modal-sub">${escapeHTML(puz.title)}</p>
+      <div class="puz-board" id="puz-board"
+        style="--board-light:${bsk.light}; --board-dark:${bsk.dark}; --board-dark-2:${bsk.frame};">
+        ${renderPuzCells()}
+      </div>
+      <div class="puz-prompt" id="puz-prompt">
+        ${state._puzzle.done
+          ? `<div style="color:var(--good); font-weight:700;">${t('puzzle_solved')} Возвращайтесь завтра — новый пазл.</div>`
+          : `<div><strong>${escapeHTML(puz.hint)}</strong></div><div class="muted">${t('puzzle_find')}</div>`}
+      </div>
+      <div class="puz-stats-strip">
+        <div class="puz-stat"><div class="v">${pp.streak || 0}</div><div class="l">${t('puzzle_streak')}</div></div>
+        <div class="puz-stat"><div class="v">${pp.bestStreak || 0}</div><div class="l">Рекорд</div></div>
+        <div class="puz-stat"><div class="v">${(pp.solved || []).length}</div><div class="l">Всего</div></div>
+      </div>
+    `);
+  }
+
+  function puzzleClick(r, c) {
+    const pz = state._puzzle; if (!pz || pz.done) return;
+    const piece = pz.board[r][c];
+    if (pz.selected) {
+      const moves = legalMoves(pz.board, pz.puz.side);
+      const match = moves.find(m =>
+        m.steps[0][0] === pz.selected[0] && m.steps[0][1] === pz.selected[1] &&
+        m.steps[m.steps.length-1][0] === r && m.steps[m.steps.length-1][1] === c
+      );
+      if (match) {
+        const fromSol = pz.puz.solution.from, toSol = pz.puz.solution.to;
+        const correct = pz.selected[0]===fromSol[0] && pz.selected[1]===fromSol[1] && r===toSol[0] && c===toSol[1];
+        if (correct) {
+          pz.board = applyMove(pz.board, match);
+          pz.selected = null; pz.done = true;
+          const newRecord = recordPuzzleSolved();
+          Sound.win();
+          refreshPuzBoard();
+          const streak = state.profile.puzzleProgress.streak;
+          document.getElementById('puz-prompt').innerHTML =
+            `<div style="color:var(--good); font-weight:800; font-size:16px;">${t('puzzle_correct')}</div>
+             ${newRecord ? `<div class="reward-display rarity-epic" style="margin-top:12px;">
+                <div class="reward-icon-wrap"><div class="reward-icon">🎁</div></div>
+                <div class="reward-text">
+                  <div class="reward-title">+1 ${BOX_TYPES.silver.name} коробка</div>
+                  <div class="reward-sub">Серия дней: ${streak}. Откройте в инвентаре 🎒</div>
+                </div>
+             </div>` : ''}`;
+          return;
+        } else {
+          pz.attempts++; Sound.lose();
+          document.getElementById('puz-prompt').innerHTML =
+            `<div style="color:var(--warn); font-weight:700;">${t('puzzle_wrong')}</div>
+             ${pz.attempts >= 2 ? `<div class="muted">Подсказка: ход начинается с (${pz.puz.solution.from[0]+1}, ${pz.puz.solution.from[1]+1}).</div>` : ''}`;
+          pz.selected = null;
+          refreshPuzBoard();
+          return;
+        }
+      }
+      if (piece && sgn(piece) === pz.puz.side) {
+        pz.selected = [r, c];
+        refreshPuzBoard();
+      } else {
+        pz.selected = null;
+        refreshPuzBoard();
+      }
+    } else if (piece && sgn(piece) === pz.puz.side) {
+      pz.selected = [r, c];
+      refreshPuzBoard();
+    }
+  }
+
+  // ============ Chat (multiplayer) ============
+  function pushChat(who, text) {
+    if (!state.multiplayer) state.multiplayer = {};
+    state.multiplayer.chat = state.multiplayer.chat || [];
+    state.multiplayer.chat.push({ who, text, t: Date.now() });
+    if (state.multiplayer.chat.length > 80) state.multiplayer.chat.shift();
+    const msgs = document.getElementById('chat-msgs');
+    if (msgs) {
+      msgs.innerHTML = renderChatMessages();
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+  }
+  function renderChatMessages() {
+    const list = (state.multiplayer && state.multiplayer.chat) || [];
+    return list.map(m => `<div class="chat-msg ${m.who}">${escapeHTML(m.text)}</div>`).join('') ||
+      `<div class="muted center" style="padding:20px; font-size:12px;">Сообщений пока нет</div>`;
+  }
+  function sendChat(text) {
+    text = String(text || '').slice(0, 200).trim();
+    if (!text) return;
+    if (state.multiplayer && state.multiplayer.conn) {
+      try { state.multiplayer.conn.send({ type:'chat', text }); } catch {}
+    }
+    pushChat('me', text);
+  }
+  function openChat() {
+    const msgs = renderChatMessages();
+    const QUICK = ['Привет!','Хороший ход!','GG','Реванш?','🔥','😮'];
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>💬 Чат</h2>
+      <div class="chat-panel">
+        <div class="chat-msgs" id="chat-msgs">${msgs}</div>
+        <div class="chat-quick">
+          ${QUICK.map(q => `<button onclick="App._sendChatQuick('${q.replace(/'/g,"\\'")}')">${q}</button>`).join('')}
+        </div>
+        <div class="chat-input-row">
+          <input id="chat-input" placeholder="${t('chat_placeholder')}" maxlength="200" onkeydown="if(event.key==='Enter') App._sendChatInput()" />
+          <button class="btn btn-primary btn-sm" onclick="App._sendChatInput()">${t('chat_send')}</button>
+        </div>
+      </div>
+    `);
+    setTimeout(() => { const el = document.getElementById('chat-input'); if (el) el.focus(); }, 30);
+  }
+
+  // ============ Friends ============
+  function addFriend(name, avatar, city, peerId) {
+    const list = state.profile.friends;
+    const ix = list.findIndex(f => f.peerId === peerId);
+    const entry = { name, avatar, city: city || '—', peerId, lastSeen: Date.now() };
+    if (ix >= 0) list[ix] = entry;
+    else list.unshift(entry);
+    if (list.length > 30) list.length = 30;
+    saveProfile();
+  }
+  function openFriends() {
+    const list = state.profile.friends || [];
+    const rows = list.length ? list.map(f => `
+      <div class="friend-row">
+        <div class="friend-avatar">${f.avatar || '👤'}</div>
+        <div class="friend-meta">
+          <div class="friend-name">${escapeHTML(f.name)}</div>
+          <div class="friend-sub">${escapeHTML(f.city)} • ID ${escapeHTML((f.peerId||'').slice(0,12))}…</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="App._inviteFriend('${f.peerId}')">${t('friends_invite')}</button>
+        <button class="btn btn-sm btn-danger" onclick="App._removeFriend('${f.peerId}')">✕</button>
+      </div>
+    `).join('') : `<div class="muted center" style="padding:20px;">Пока нет друзей. Сыграйте онлайн и добавьте соперника.</div>`;
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>👥 ${t('mode_friends')}</h2>
+      <p class="modal-sub">Друзья сохраняются по их PeerID. Можно отправить им приглашение в любой момент.</p>
+      ${rows}
+    `);
+  }
+
+  // ============ Tournament (local 4-player bracket) ============
+  function newTournament(names) {
+    // names: array of 4 strings
+    while (names.length < 4) names.push('Игрок ' + (names.length+1));
+    names.length = 4;
+    return {
+      names,
+      results: [null, null, null], // semi1, semi2, final
+    };
+  }
+  function openTournament() {
+    if (!state.tournament) {
+      // Initial form
+      showModal(`
+        <button class="modal-close" onclick="closeModal()">✕</button>
+        <h2>🏆 ${t('mode_tournament')}</h2>
+        <p class="modal-sub">Локальный турнир на 4 игроков. Полуфиналы → финал. Все партии играются на этом устройстве.</p>
+        ${[0,1,2,3].map(i => `
+          <div class="field"><label>${t('tourney_name')} ${i+1}</label>
+            <input id="tn-${i}" value="${i===0 ? escapeHTML(state.profile.nickname||'Вы') : 'Игрок '+(i+1)}" maxlength="22"/>
+          </div>`).join('')}
+        <div class="modal-actions">
+          <button class="btn btn-primary btn-lg grow" onclick="App._startTournament()">${t('tourney_start')}</button>
+        </div>
+      `);
+      return;
+    }
+    renderTournamentBracket();
+  }
+  function renderTournamentBracket() {
+    const tourn = state.tournament;
+    const r = tourn.results;
+    const winnerOf = (m) => m === null ? null : (m.winner);
+    const semiW1 = winnerOf(r[0]);
+    const semiW2 = winnerOf(r[1]);
+    const champion = winnerOf(r[2]);
+    function playerCell(name, winState) {
+      const cls = winState === 'win' ? 'win' : winState === 'lose' ? 'lose' : '';
+      return `<div class="bracket-player ${cls}">${escapeHTML(name || '?')}</div>`;
+    }
+    function matchCell(matchIdx, n1, n2) {
+      const result = r[matchIdx];
+      const playable = !result && n1 && n2;
+      const w1 = result && result.winner === n1 ? 'win' : (result ? 'lose' : '');
+      const w2 = result && result.winner === n2 ? 'win' : (result ? 'lose' : '');
+      return `<div class="bracket-match ${playable?'playable':''}" ${playable?`onclick="App._playMatch(${matchIdx})"`:''}>
+        ${playerCell(n1, w1)}
+        <div class="bracket-sep"></div>
+        ${playerCell(n2, w2)}
+      </div>`;
+    }
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>🏆 ${t('mode_tournament')}</h2>
+      <p class="modal-sub">Кликните на матч, чтобы сыграть его за устройством.</p>
+      <div class="bracket">
+        <div class="bracket-round">
+          <div class="muted" style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Полуфинал</div>
+          ${matchCell(0, tourn.names[0], tourn.names[1])}
+          ${matchCell(1, tourn.names[2], tourn.names[3])}
+        </div>
+        <div class="bracket-round">
+          <div class="muted" style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Финал</div>
+          ${matchCell(2, semiW1, semiW2)}
+        </div>
+        <div class="bracket-round">
+          <div class="muted" style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">${t('tourney_winner')}</div>
+          <div class="bracket-match" style="background:linear-gradient(135deg,#ffe18c,#d4a242); color:#2a1c00; font-weight:800; min-height:80px;">
+            ${champion ? `🏆 ${escapeHTML(champion)}` : '—'}
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        ${champion ? `<button class="btn btn-primary grow" onclick="App._resetTournament()">Новый турнир</button>` : ''}
+        <button class="btn btn-ghost grow" onclick="closeModal()">Закрыть</button>
+      </div>
+    `);
+  }
+
+  // ============ Cloud leaderboard (Firebase REST) ============
+  // Free Firebase project: set firebaseUrl in profile to enable real sync.
+  // URL format: https://YOUR-PROJECT.firebaseio.com  (Realtime DB)
+  // Rules must allow public read; demo writes to /lb.json
+  async function cloudLBPush() {
+    const url = state.profile.firebaseUrl;
+    if (!url) return false;
+    const p = state.profile;
+    const entry = {
+      nickname: p.nickname || 'Игрок', city: p.city, rating: p.stats.rating,
+      avatar: p.avatar, ts: Date.now(),
+      id: p._cloudId || (p._cloudId = 'usr_' + Math.random().toString(36).slice(2,10)),
+    };
+    saveProfile();
+    try {
+      // Upsert: PUT /lb/<id>.json
+      await fetch(`${url.replace(/\/$/,'')}/lb/${entry.id}.json`, {
+        method: 'PUT', body: JSON.stringify(entry),
+      });
+      return true;
+    } catch { return false; }
+  }
+  async function cloudLBFetch() {
+    const url = state.profile.firebaseUrl;
+    if (!url) return null;
+    try {
+      const resp = await fetch(`${url.replace(/\/$/,'')}/lb.json`);
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      if (!data) return [];
+      return Object.values(data).filter(x => x && x.nickname);
+    } catch { return null; }
+  }
+
+  // ===== Routing & App actions =====
+  const App = {
+    go(view) {
+      state.view = view;
+      if (view === 'menu') renderMenu();
+      else if (view === 'game') renderGame();
+      else if (view === 'analysis') renderAnalysis();
+      else if (view === 'campaign') renderCampaign();
+    },
+
+    startCampaignLevel(worldId, levelIdx) {
+      const w = getWorld(worldId);
+      if (!w) return;
+      const lvl = w.levels[levelIdx];
+      const g = newGame({
+        mode: 'ai',
+        aiLevel: lvl.aiLevel,
+        playerSide: WHITE,
+        names: { white: state.profile.nickname || 'Вы', black: lvl.name },
+        avatars: { white: state.profile.avatar, black: lvl.avatar },
+      });
+      g.campaign = { worldId, levelIdx, isBoss: false };
+      state.game = g;
+      state.view = 'game';
+      closeModal();
+      renderGame();
+    },
+
+    startCampaignBoss(worldId) {
+      const w = getWorld(worldId);
+      if (!w) return;
+      const boss = w.boss;
+      const g = newGame({
+        mode: 'ai',
+        aiLevel: boss.aiLevel,
+        playerSide: WHITE,
+        names: { white: state.profile.nickname || 'Вы', black: boss.name + ' (БОСС)' },
+        avatars: { white: state.profile.avatar, black: boss.avatar },
+      });
+      g.campaign = { worldId, isBoss: true };
+      state.game = g;
+      state.view = 'game';
+      closeModal();
+      renderGame();
+    },
+
+    _backFromGame() {
+      closeModal();
+      const g = state.game;
+      if (g && g.campaign) this.go('campaign');
+      else this.go('menu');
+    },
+
+    finishOnboarding() {
+      const nick = document.getElementById('onb-nick').value.trim() || 'Игрок';
+      const city = document.getElementById('onb-city').value;
+      const av = document.querySelector('#onb-avatars .sel')?.dataset.av || AVATARS[0];
+      state.profile.nickname = nick.slice(0, 22);
+      state.profile.city = city;
+      state.profile.avatar = av;
+      saveProfile();
+      this.go('menu');
+    },
+
+    toggleTheme() {
+      state.profile.theme = state.profile.theme === 'dark' ? 'light' : 'dark';
+      saveProfile(); applyTheme();
+      if (state.view === 'menu') renderMenu();
+      else if (state.view === 'game') renderGame();
+      else if (state.view === 'analysis') renderAnalysis();
+    },
+    toggleSound() {
+      state.profile.sound = !state.profile.sound;
+      saveProfile();
+      if (state.view === 'game') renderGame();
+      else if (state.view === 'menu') renderMenu();
+    },
+    toggleHints() {
+      state.profile.coachHints = !state.profile.coachHints;
+      saveProfile();
+      if (state.view === 'game') renderGame();
+    },
+    togglePlayBlack(e) {
+      e.stopPropagation();
+      state._playBlack = !state._playBlack;
+      openAIPicker();
+    },
+    openAIPicker, openMultiplayerHost, openBlitz, showLeaderboard, showProfile, showPro, showAnnotation,
+    startAnalysis, copyShareLink, cancelMultiplayer,
+    openInventory, openBox, openAllBoxes, equipSkin,
+    _performBoxOpen, _closeOpening,
+    openPuzzle, openChat, openFriends, openTournament,
+    _puzClick(r,c) { puzzleClick(r,c); },
+    _sendChatInput() {
+      const el = document.getElementById('chat-input');
+      if (!el) return;
+      const v = el.value;
+      el.value = '';
+      sendChat(v);
+    },
+    _sendChatQuick(text) { sendChat(text); },
+    _inviteFriend(peerId) {
+      // Try to host a game and instruct friend; for now: copy a join link and show toast
+      if (!peerId) { showToast('Нет ID друга'); return; }
+      openMultiplayerHost();
+      showToast('Поделитесь созданной ссылкой с другом');
+    },
+    _removeFriend(peerId) {
+      state.profile.friends = state.profile.friends.filter(f => f.peerId !== peerId);
+      saveProfile();
+      openFriends();
+    },
+    _startTournament() {
+      const names = [0,1,2,3].map(i => (document.getElementById('tn-'+i)?.value || '').trim() || 'Игрок '+(i+1));
+      state.tournament = newTournament(names);
+      renderTournamentBracket();
+    },
+    _playMatch(matchIdx) {
+      const tourn = state.tournament; if (!tourn) return;
+      let n1, n2;
+      if (matchIdx === 0) { n1 = tourn.names[0]; n2 = tourn.names[1]; }
+      else if (matchIdx === 1) { n1 = tourn.names[2]; n2 = tourn.names[3]; }
+      else { n1 = tourn.results[0]?.winner; n2 = tourn.results[1]?.winner; if (!n1 || !n2) return; }
+      tourn._pendingMatch = { matchIdx, n1, n2 };
+      // Start a local 2-player game; on end we record winner
+      const g = newGame({
+        mode: 'local',
+        names: { white: n1, black: n2 },
+        avatars: { white: '⚪', black: '⚫' },
+      });
+      g._tournamentMatch = { matchIdx, n1, n2 };
+      state.game = g; state.view = 'game';
+      closeModal(); renderGame();
+    },
+    _resetTournament() { state.tournament = null; closeModal(); openTournament(); },
+    _addOpponentToFriends() {
+      const mp = state.multiplayer;
+      if (!mp || !mp.opponent || !mp.opponent.peerId) { showToast('Нет данных для добавления'); return; }
+      addFriend(mp.opponent.name, mp.opponent.avatar, mp.opponent.city, mp.opponent.peerId);
+      showToast('Друг добавлен');
+    },
+    async setupCloudLB() {
+      const url = prompt('Введите URL Firebase Realtime DB (без /lb.json):\nПример: https://my-damka.firebaseio.com\nОставьте пустым, чтобы отключить.', state.profile.firebaseUrl || '');
+      if (url === null) return;
+      state.profile.firebaseUrl = url.trim() || null;
+      saveProfile();
+      if (state.profile.firebaseUrl) {
+        const ok = await cloudLBPush();
+        showToast(ok ? 'Облачный LB подключён' : 'Не удалось подключиться (проверьте URL и правила)');
+      } else {
+        showToast('Облачный LB отключён');
+      }
+      showLeaderboard();
+    },
+    setInvTab(tab) { invTab = tab; openInventory(); },
+    setInvRarity(r) { invRarity = r; openInventory(); },
+    setLang(id) {
+      state.profile.lang = id;
+      saveProfile();
+      if (state.view === 'menu') renderMenu();
+      else if (state.view === 'campaign') renderCampaign();
+      showToast('✓');
+    },
+    shuffleCoach() {
+      const g = state.game; if (!g) return;
+      const current = g.coachId;
+      const others = COACHES.filter(c => c.id !== current);
+      g.coachId = others[Math.floor(Math.random() * others.length)].id;
+      if (state.view === 'game') renderGame();
+    },
+
+    setLBScope(s) { lbScope = s; showLeaderboard(); },
+    _refreshCloudLB() {
+      cloudLBCache = null;
+      showLeaderboard();
+      showToast('Обновляем…');
+    },
+
+    startAI(level) {
+      const playerSide = state._playBlack ? BLACK : WHITE;
+      const opponentName = AI_LEVELS.find(l => l.id === level)?.name || 'ИИ';
+      const g = newGame({
+        mode: 'ai',
+        aiLevel: level,
+        playerSide,
+        names: playerSide === WHITE
+          ? { white: state.profile.nickname || 'Вы', black: 'ИИ ' + opponentName }
+          : { white: 'ИИ ' + opponentName, black: state.profile.nickname || 'Вы' },
+        avatars: playerSide === WHITE
+          ? { white: state.profile.avatar, black: '🤖' }
+          : { white: '🤖', black: state.profile.avatar },
+      });
+      state.game = g;
+      closeModal();
+      state.view = 'game';
+      renderGame();
+      if (g.sideToMove !== g.playerSide) runAITurn();
+    },
+
+    startLocal() {
+      const g = newGame({
+        mode: 'local',
+        names: { white: 'Белые', black: 'Чёрные' },
+        avatars: { white: '⚪', black: '⚫' },
+      });
+      state.game = g; state.view = 'game'; renderGame();
+    },
+
+    startBlitz(kind) {
+      const g = newGame({
+        mode: kind === 'ai' ? 'ai' : 'local',
+        aiLevel: 3,
+        playerSide: WHITE,
+        blitz: true,
+        names: kind === 'ai'
+          ? { white: state.profile.nickname || 'Вы', black: 'ИИ' }
+          : { white: 'Белые', black: 'Чёрные' },
+        avatars: kind === 'ai'
+          ? { white: state.profile.avatar, black: '🤖' }
+          : { white: '⚪', black: '⚫' },
+      });
+      g.timerHandle = setInterval(tickTimers, 200);
+      g.timers.lastTick = Date.now();
+      state.game = g; state.view = 'game';
+      closeModal(); renderGame();
+    },
+
+    requestUndo() {
+      const g = state.game; if (!g || g.moveHistory.length === 0 || g.mode === 'online') return;
+      // Pop one move (or two if vs AI and AI just moved)
+      const pop = () => {
+        const last = g.moveHistory.pop();
+        g.board = cloneBoard(last.board);
+        g.sideToMove = last.side;
+      };
+      pop();
+      if (g.mode === 'ai' && g.sideToMove !== g.playerSide && g.moveHistory.length > 0) pop();
+      g.selected = null; g.avail = []; g.status = 'playing';
+      renderGame();
+    },
+
+    confirmExit() {
+      const g = state.game;
+      if (!g || g.moveHistory.length === 0) { this.go('menu'); return; }
+      showModal(`
+        <h2>Выйти из партии?</h2>
+        <p class="modal-sub">Прогресс не сохранится. Если играете против ИИ — это засчитается как поражение.</p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost grow" onclick="closeModal()">Отмена</button>
+          <button class="btn btn-danger grow" onclick="App.forceExit()">Выйти</button>
+        </div>
+      `);
+    },
+    forceExit() {
+      const g = state.game;
+      const wasCampaign = g && g.campaign;
+      if (g && g.mode === 'ai' && g.moveHistory.length > 4) recordResult('loss');
+      if (g && g.timerHandle) clearInterval(g.timerHandle);
+      if (state.multiplayer?.peer) { try { state.multiplayer.peer.destroy(); } catch {} state.multiplayer = null; }
+      state.game = null;
+      closeModal();
+      this.go(wasCampaign ? 'campaign' : 'menu');
+    },
+
+    rematch() {
+      closeModal();
+      const g = state.game;
+      if (!g) { this.go('menu'); return; }
+      if (g.campaign) {
+        if (g.campaign.isBoss) this.startCampaignBoss(g.campaign.worldId);
+        else this.startCampaignLevel(g.campaign.worldId, g.campaign.levelIdx);
+        return;
+      }
+      if (g.mode === 'ai') this.startAI(g.aiLevel);
+      else if (g.mode === 'local') this.startLocal();
+      else this.go('menu');
+    },
+
+    openShareLink(id) {
+      if (!id) { showToast('Комната недоступна'); return; }
+      const url = location.origin + location.pathname + '?room=' + id;
+      showModal(`
+        <button class="modal-close" onclick="closeModal()">✕</button>
+        <h2>Пригласить друга</h2>
+        <p class="modal-sub">Отправьте эту ссылку, чтобы пригласить ещё одного игрока в комнату.</p>
+        <div class="share-link-row">
+          <input id="share-url" value="${url}" readonly />
+          <button class="btn btn-primary btn-sm" onclick="App.copyShareLink()">Копировать</button>
+        </div>
+      `);
+    },
+
+    upgradePro() {
+      // Mock Stripe checkout
+      showModal(`
+        <h2>💳 Stripe Checkout</h2>
+        <p class="modal-sub">Демонстрационный режим — реальная оплата не производится.</p>
+        <div class="modal-row"><div>Дамка Pro — Месячная подписка</div><div><strong>$4.99</strong></div></div>
+        <div class="modal-row"><div>Налог</div><div>$0.00</div></div>
+        <div class="modal-row"><div><strong>Итого</strong></div><div><strong>$4.99 / мес</strong></div></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost grow" onclick="closeModal()">Отмена</button>
+          <button class="btn btn-primary grow" onclick="App.completePro()">Оплатить (демо)</button>
+        </div>
+      `);
+    },
+    completePro() {
+      state.profile.isPro = true;
+      saveProfile();
+      closeModal();
+      showToast('🎉 Pro активирован! Все скины разблокированы.');
+      renderMenu();
+    },
+
+    saveProfileForm() {
+      const nick = document.getElementById('prof-nick').value.trim() || 'Игрок';
+      const city = document.getElementById('prof-city').value;
+      const av = document.querySelector('#prof-av-picker .sel')?.dataset.av || state.profile.avatar;
+      state.profile.nickname = nick.slice(0, 22);
+      state.profile.city = city;
+      state.profile.avatar = av;
+      saveProfile();
+      closeModal();
+      renderMenu();
+    },
+
+    confirmReset() {
+      showModal(`
+        <h2>Сбросить статистику?</h2>
+        <p class="modal-sub">Это удалит ваш рейтинг и историю побед. Действие необратимо.</p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost grow" onclick="App.showProfile()">Отмена</button>
+          <button class="btn btn-danger grow" onclick="App.doReset()">Сбросить</button>
+        </div>
+      `);
+    },
+    doReset() {
+      state.profile.stats = { wins: 0, losses: 0, draws: 0, rating: 1000, gamesByMode: {} };
+      saveProfile();
+      Storage.set('lb', []);
+      closeModal();
+      renderMenu();
+    },
+  };
+  window.App = App;
+
+  // ===== Helpers =====
+  function escapeHTML(s) {
+    return String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
+  // ===== Init =====
+  function init() {
+    state.profile = loadProfile();
+    applyTheme();
+    // If joining via ?room=
+    const params = new URLSearchParams(location.search);
+    const room = params.get('room');
+    if (!state.profile.nickname) {
+      renderOnboarding();
+      // After onboarding, joining will be handled separately if room param is present
+      if (room) {
+        // Save it for after onboarding
+        state._pendingRoom = room;
+      }
+      // Wrap finishOnboarding to honor pending room
+      const origFinish = App.finishOnboarding;
+      App.finishOnboarding = function() {
+        origFinish.call(App);
+        if (state._pendingRoom) {
+          const r = state._pendingRoom; state._pendingRoom = null;
+          setTimeout(() => joinMultiplayer(r), 200);
+        }
+      };
+    } else if (room) {
+      renderMenu();
+      setTimeout(() => joinMultiplayer(room), 200);
+    } else {
+      renderMenu();
+    }
+  }
+
+  window.addEventListener('error', (e) => {
+    console.error('Global error:', e.error);
+  });
+
+  // ===== PWA: Service worker + install prompt =====
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installPrompt = e;
+    state._canInstall = true;
+    if (state.view === 'menu') renderMenu();
+  });
+  window.addEventListener('appinstalled', () => {
+    installPrompt = null; state._canInstall = false;
+    showToast(t('pwa_installed'));
+  });
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+  window.promptInstall = function() {
+    if (installPrompt) {
+      installPrompt.prompt();
+      installPrompt.userChoice.finally(() => { installPrompt = null; state._canInstall = false; });
+    } else {
+      showToast('Установка недоступна (или приложение уже установлено)');
+    }
+  };
+
+  init();
+  </script>
+</body>
+</html>
